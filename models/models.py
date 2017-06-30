@@ -14,6 +14,10 @@ def create_model(opt):
         assert(opt.dataset_mode == 'single')
         from .test_model import TestModel
         model = TestModel()
+    elif opt.model == 'nogan_1.0':
+        assert(opt.dataset_mode == 'unaligned')
+        from .nongan_1a_model import NoGANModel
+        model = NoGANModel()
     else:
         raise ValueError("Model [%s] not recognized." % opt.model)
     model.initialize(opt)
