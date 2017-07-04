@@ -176,7 +176,7 @@ class ResnetGenerator(nn.Module):
 class ResnetSoftmaxGenerator(nn.Module):
     def __init__(self, input_nc, output_nc, ngf=64, norm_layer=nn.BatchNorm2d, use_dropout=False, n_blocks=6, gpu_ids=[]):
         assert(n_blocks >= 0)
-        super(ResnetGenerator, self).__init__()
+        super(ResnetSoftmaxGenerator, self).__init__()
         self.input_nc = input_nc
         self.output_nc = output_nc
         self.ngf = ngf

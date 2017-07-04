@@ -26,7 +26,7 @@ class NoGANModel(BaseModel):
         # load/define networks
         # Code (paper): G_A (G)
 
-        #opt.which_model_netG = 'resnet_softmax_9blocks'
+        opt.which_model_netG = 'resnet_softmax_9blocks'
         self.netG_A = networks.define_G(opt.input_nc, opt.output_nc,
                                         opt.ngf, opt.which_model_netG, opt.norm, opt.use_dropout, self.gpu_ids)
 
@@ -37,8 +37,8 @@ class NoGANModel(BaseModel):
         if self.isTrain:
             self.old_lr = opt.lr
             # define loss functions
-            #self.criterionNLL = torch.nn.NNLoss2d()
-            self.criterionL1 = torch.nn.L1Loss()
+            self.criterionNLL = torch.nn.NLLLoss2d()
+            #self.criterionL1 = torch.nn.L1Loss()
             # initialize optimizers
             self.optimizer_G = torch.optim.Adam(itertools.chain(self.netG_A.parameters()),
                                                 lr=opt.lr, betas=(opt.beta1, 0.999))
@@ -70,7 +70,8 @@ class NoGANModel(BaseModel):
     def backward_G(self):
         # loss G_A(A)
         self.fake_B = self.netG_A.forward(self.real_A)
-        self.loss_G_A = self.criterionL1(self.fake_B, self.real_B)
+        #self.loss_G_A = self.criterionL1(self.fake_B, self.real_B)
+        self.loss_G_A = self.criterionNLL(self.fake_B, self.real_B)
         self.loss_G_A.backward()
 
     def optimize_parameters(self):

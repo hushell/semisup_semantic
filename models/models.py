@@ -15,7 +15,7 @@ def create_model(opt):
         from .test_model import TestModel
         model = TestModel()
     elif opt.model == 'nogan_1.0':
-        assert(opt.dataset_mode == 'unaligned')
+        assert(opt.dataset_mode == 'discrete')
         from .nongan_1a_model import NoGANModel
         model = NoGANModel()
     else:
