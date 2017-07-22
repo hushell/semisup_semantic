@@ -1,13 +1,13 @@
 import os.path
-import torchvision.transforms as transforms
 from data.base_dataset import BaseDataset
 from data.image_folder import make_dataset
 from PIL import Image
-import PIL
-from pdb import set_trace as st
 import torch
 import torchnet as tnt
 import numpy as np
+import util
+import cv2
+import torchvision
 
 
 class DiscreteDataset(BaseDataset):
@@ -24,45 +24,57 @@ class DiscreteDataset(BaseDataset):
         self.B_paths = sorted(self.B_paths)
 
         # transforms
-        transform_list_img = []
-        transform_list_lab = []
-        #if opt.resize_or_crop == 'resize_and_crop':
-        #    osize = [opt.loadSize, opt.loadSize]
-        #    transform_list_img.append(transforms.Scale(osize, Image.BICUBIC))
-        #    transform_list_lab.append(transforms.Scale(osize, Image.NEAREST))
+        transform_list = []
+        transform_img = tnt.transform.compose([
+            lambda x: x.transpose(2,0,1).astype(np.float32),
+            lambda x: torch.from_numpy(x).div_(255.0),
+            torchvision.transforms.Normalize(mean = [ 0.485, 0.456, 0.406 ],
+                                             std = [ 0.229, 0.224, 0.225 ]),
+        ])
 
-        #if opt.isTrain and not opt.no_flip:
-        #    transform_list_img.append(transforms.RandomHorizontalFlip())
-        #    transform_list_lab.append(transforms.RandomHorizontalFlip())
+        transform_target = tnt.transform.compose([
+            lambda x: x.astype(np.int32),
+            torch.from_numpy,
+            lambda x: x.contiguous(),
+            #lambda x: x.view(1,x.size(0), x.size(1)),
+        ])
 
-        #if opt.resize_or_crop != 'no_resize':
-        #    transform_list_img.append(transforms.RandomCrop(opt.fineSize))
-        #    transform_list_lab.append(transforms.RandomCrop(opt.fineSize))
+        interp_img = cv2.INTER_LINEAR
+        interp_target = cv2.INTER_NEAREST
+        if opt.isTrain:
+            if opt.resize_or_crop == 'resize_and_crop':
+                #max_scale = 1.5 * opt.loadSize
+                #min_scale = 0.8 * opt.loadSize
+                #transform_list.append(util.RandomScale(min_scale, max_scale, interp_img, interp_target))
+                scale = float(opt.loadSize) / float(opt.fineSize)
+                transform_list.append(util.Scale(scale, interp_img, interp_target))
 
-        #transform_list_img += [transform.Lambda(lambda x: x.transpose(2,0,1).astype(np.float32)),
-        #                       transforms.ToTensor(),
-        #                       transforms.Normalize((0.485, 0.456, 0.406),
-        #                                            (0.229, 0.224, 0.225))]
-        transform_list_img += [transforms.ToTensor(),
-                               transforms.Normalize((0.5, 0.5, 0.5),
-                                                    (0.5, 0.5, 0.5))]
-        transform_list_lab += [transforms.Lambda(lambda x: x.astype(np.int32)),
-                               transforms.Lambda(lambda x: torch.from_numpy(x)),
-                               transforms.Lambda(lambda x: x.contiguous()),
-                               transforms.Lambda(lambda x: x.view(1, x.size(0), x.size(1)))]
-        self.transform_img = transforms.Compose(transform_list_img)
-        self.transform_lab = transforms.Compose(transform_list_lab)
+            if opt.isTrain and not opt.no_flip:
+                transform_list.append(util.RandomFlip())
+
+            if opt.resize_or_crop != 'no_resize':
+                transform_list.append(util.RandomCrop(crop_width=opt.fineSize, crop_height=opt.fineSize))
+
+            transform_list.append(util.ImgTargetTransform(img_transform=transform_img, target_transform=transform_target))
+            self.transform_fun = tnt.transform.compose(transform_list)
+        else:
+            target_scale = opt.targetScale if hasattr(opt, 'target_scale') else 1.0
+            self.transform_fun = tnt.transform.compose([
+                util.Scale(scale=target_scale, interp_img=interp_img, interp_target=interp_target),
+                util.ImgTargetTransform(img_transform=transform_img, target_transform=transform_target),
+            ])
 
     def __getitem__(self, index):
         A_path = self.A_paths[index]
         B_path = self.B_paths[index]
 
-        A_img = np.array(Image.open(A_path))
-        B_img = np.array(Image.open(B_path))
+        A_img = np.array(Image.open(A_path), dtype=np.float32)
+        B_img = np.array(Image.open(B_path), dtype=np.int32)
 
-        A_img = self.transform_img(A_img)
-        B_img = self.transform_lab(B_img)
-        #B_img.type(torch.LongTensor)
+        #print('=== B_img.size = {}'.format(B_img.shape))
+        #print('=== B_path = {}'.format(B_path))
+        #import ipdb; ipdb.set_trace()
+        A_img, B_img = self.transform_fun((A_img, B_img))
 
         return {'A': A_img, 'B': B_img,
                 'A_paths': A_path, 'B_paths': B_path}
@@ -72,4 +84,3 @@ class DiscreteDataset(BaseDataset):
 
     def name(self):
         return 'DiscreteDataset'
-

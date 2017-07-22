@@ -14,10 +14,10 @@ def create_model(opt):
         assert(opt.dataset_mode == 'single')
         from .test_model import TestModel
         model = TestModel()
-    elif opt.model == 'nogan_1.0':
+    elif opt.model == 'gen_only':
         assert(opt.dataset_mode == 'discrete')
-        from .nongan_1a_model import NoGANModel
-        model = NoGANModel()
+        from .generator_only_model import GeneratorOnlyModel
+        model = GeneratorOnlyModel()
     else:
         raise ValueError("Model [%s] not recognized." % opt.model)
     model.initialize(opt)

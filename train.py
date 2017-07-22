@@ -3,8 +3,16 @@ from options.train_options import TrainOptions
 from data.data_loader import CreateDataLoader
 from models.models import create_model
 from util.visualizer import Visualizer
+import os
+import torch
 
 opt = TrainOptions().parse()
+
+os.environ['CUDA_VISIBLE_DEVICES'] = '3'
+# to prevent opencv from initializing CUDA in workers
+torch.randn(8).cuda()
+os.environ['CUDA_VISIBLE_DEVICES'] = ''
+
 data_loader = CreateDataLoader(opt)
 dataset = data_loader.load_data()
 dataset_size = len(data_loader)

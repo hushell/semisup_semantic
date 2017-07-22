@@ -14,6 +14,16 @@ def tensor2im(image_tensor, imtype=np.uint8):
     image_numpy = (np.transpose(image_numpy, (1, 2, 0)) + 1) / 2.0 * 255.0
     return image_numpy.astype(imtype)
 
+def tensor2lab(lab_tensor, label2color):
+    lab_numpy = lab_tensor[0].cpu().float().numpy()
+    if len(lab_numpy.shape) > 2:
+        seg_map = np.argmax(lab_numpy, axis=0) # pred
+    else:
+        seg_map = lab_numpy # gt
+    seg_map = seg_map.astype(np.int32).squeeze()
+    assert(len(seg_map.shape) == 2)
+    seg_image = label2color[seg_map].astype(np.uint8)
+    return seg_image
 
 def diagnose_network(net, name='network'):
     mean = 0.0

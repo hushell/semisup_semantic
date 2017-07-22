@@ -95,10 +95,10 @@ class CycleGANModel(BaseModel):
         return self.image_paths
 
     def backward_D_basic(self, netD, real, fake):
-        # Real
+        # Real: log( D(real) )
         pred_real = netD.forward(real)
         loss_D_real = self.criterionGAN(pred_real, True)
-        # Fake
+        # Fake: log( 1 - D(fake) )
         pred_fake = netD.forward(fake.detach())
         loss_D_fake = self.criterionGAN(pred_fake, False)
         # Combined loss
@@ -108,6 +108,7 @@ class CycleGANModel(BaseModel):
         return loss_D
 
     def backward_D_A(self):
+        # self.fake_B = G_A(A), fake_B is self.fake_B with random replacements from fake_B_pool
         fake_B = self.fake_B_pool.query(self.fake_B)
         self.loss_D_A = self.backward_D_basic(self.netD_A, self.real_B, fake_B)
 
@@ -132,18 +133,18 @@ class CycleGANModel(BaseModel):
             self.loss_idt_B = 0
 
         # GAN loss
-        # D_A(G_A(A))
+        # log( 1 - D_A(G_A(A)) )
         self.fake_B = self.netG_A.forward(self.real_A)
         pred_fake = self.netD_A.forward(self.fake_B)
         self.loss_G_A = self.criterionGAN(pred_fake, True)
-        # D_B(G_B(B))
+        # log( 1 - D_B(G_B(B)) )
         self.fake_A = self.netG_B.forward(self.real_B)
         pred_fake = self.netD_B.forward(self.fake_A)
         self.loss_G_B = self.criterionGAN(pred_fake, True)
-        # Forward cycle loss
+        # Forward cycle loss: || A - G_B(G_A(A)) ||
         self.rec_A = self.netG_B.forward(self.fake_B)
         self.loss_cycle_A = self.criterionCycle(self.rec_A, self.real_A) * lambda_A
-        # Backward cycle loss
+        # Backward cycle loss: || B - G_A(G_B(B)) ||
         self.rec_B = self.netG_A.forward(self.fake_A)
         self.loss_cycle_B = self.criterionCycle(self.rec_B, self.real_B) * lambda_B
         # combined loss

@@ -9,11 +9,12 @@ from util.image_pool import ImagePool
 from .base_model import BaseModel
 from . import networks
 import sys
+import imp
 
 
-class NoGANModel(BaseModel):
+class GeneratorOnlyModel(BaseModel):
     def name(self):
-        return 'NoGANModel'
+        return 'GeneratorOnlyModel'
 
     def initialize(self, opt):
         BaseModel.initialize(self, opt)
@@ -25,7 +26,6 @@ class NoGANModel(BaseModel):
 
         # load/define networks
         # Code (paper): G_A (G)
-
         opt.which_model_netG = 'resnet_softmax_9blocks'
         self.netG_A = networks.define_G(opt.input_nc, opt.output_nc,
                                         opt.ngf, opt.which_model_netG, opt.norm, opt.use_dropout, self.gpu_ids)
@@ -37,8 +37,10 @@ class NoGANModel(BaseModel):
         if self.isTrain:
             self.old_lr = opt.lr
             # define loss functions
-            self.criterionNLL = torch.nn.NLLLoss2d()
-            #self.criterionL1 = torch.nn.L1Loss()
+            self.criterion = torch.nn.NLLLoss2d()
+            #self.criterion = torch.nn.L1Loss()
+            if len(self.gpu_ids) > 0:
+                self.criterion = self.criterion.cuda()
             # initialize optimizers
             self.optimizer_G = torch.optim.Adam(itertools.chain(self.netG_A.parameters()),
                                                 lr=opt.lr, betas=(opt.beta1, 0.999))
@@ -47,12 +49,32 @@ class NoGANModel(BaseModel):
             networks.print_network(self.netG_A)
             print('-----------------------------------------------')
 
+        # visualization
+        cslabels = imp.load_source("",'./datasets/cityscapes_AB/labels.py')
+        label2trainId = np.asarray([(1+label.trainId) if label.trainId < 255 else 0 for label in cslabels.labels], dtype=np.float32)
+        label2color = np.asarray([(label.color) for label in cslabels.labels], dtype=np.uint8)
+        num_cats      = 1+19 # the first extra category is for the pixels with missing category
+        trainId2labelId = np.ndarray([num_cats], dtype=np.int32)
+        trainId2labelId.fill(-1)
+        for labelId in range(len(cslabels.labels)):
+            trainId = int(label2trainId[labelId])
+            if trainId2labelId[trainId] == -1:
+                trainId2labelId[trainId] = labelId
+        self.trainId2color = label2color[trainId2labelId]
+
     def set_input(self, input):
         AtoB = self.opt.which_direction == 'AtoB'
         input_A = input['A' if AtoB else 'B']
         input_B = input['B' if AtoB else 'A']
-        self.input_A.resize_(input_A.size()).copy_(input_A)
-        self.input_B.resize_(input_B.size()).copy_(input_B)
+        #import ipdb; ipdb.set_trace()
+        #self.input_A.resize_(input_A.size()).copy_(input_A)
+        #self.input_B.resize_(input_B.size()).copy_(input_B)
+        if len(self.gpu_ids) > 0:
+            self.input_A = input_A.cuda()
+            self.input_B = input_B.long().cuda()
+        else:
+            self.input_A = input_A
+            self.input_B = input_B.long()
         self.image_paths = input['A_paths' if AtoB else 'B_paths']
 
     def forward(self):
@@ -63,21 +85,19 @@ class NoGANModel(BaseModel):
         self.real_A = Variable(self.input_A, volatile=True)
         self.fake_B = self.netG_A.forward(self.real_A)
 
-    # get image paths
     def get_image_paths(self):
         return self.image_paths
 
     def backward_G(self):
         # loss G_A(A)
         self.fake_B = self.netG_A.forward(self.real_A)
-        #self.loss_G_A = self.criterionL1(self.fake_B, self.real_B)
-        self.loss_G_A = self.criterionNLL(self.fake_B, self.real_B)
+        self.loss_G_A = self.criterion(self.fake_B, self.real_B)
         self.loss_G_A.backward()
 
     def optimize_parameters(self):
         # forward
         self.forward()
-        # G_A and G_B
+        # G_A
         self.optimizer_G.zero_grad()
         self.backward_G()
         self.optimizer_G.step()
@@ -87,9 +107,10 @@ class NoGANModel(BaseModel):
         return OrderedDict([('G_A', G_A), ('Nothing', 0)])
 
     def get_current_visuals(self):
+        #import ipdb; ipdb.set_trace()
         real_A = util.tensor2im(self.real_A.data)
-        fake_B = util.tensor2im(self.fake_B.data)
-        real_B = util.tensor2im(self.real_B.data)
+        fake_B = util.tensor2lab(self.fake_B.data, self.trainId2color)
+        real_B = util.tensor2lab(self.real_B.data, self.trainId2color)
         return OrderedDict([('real_A', real_A), ('fake_B', fake_B), ('real_B', real_B)])
 
     def save(self, label):
