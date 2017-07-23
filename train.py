@@ -3,6 +3,7 @@ from options.train_options import TrainOptions
 from data.data_loader import CreateDataLoader
 from models.models import create_model
 from util.visualizer import Visualizer
+from util.meter import *
 import os
 import torch
 
@@ -36,11 +37,20 @@ for epoch in range(1, opt.niter + opt.niter_decay + 1):
             visualizer.display_current_results(model.get_current_visuals(), epoch)
 
         if total_steps % opt.print_freq == 0:
+            # compute losses
             errors = model.get_current_errors()
-            t = (time.time() - iter_start_time) / opt.batchSize
-            visualizer.print_current_errors(epoch, epoch_iter, errors, t)
+            # compute eval result for current batch
+            eval_stats = DAverageMeter()
+            confMeter = model.get_eval_results()
+            eval_stats.update({'confMeter': confMeter})
+            # plot errors, metrics
             if opt.display_id > 0:
                 visualizer.plot_current_errors(epoch, float(epoch_iter)/dataset_size, opt, errors)
+                visualizer.plot_current_metrics(epoch, float(epoch_iter)/dataset_size, opt, eval_stats.average()['confMeter'])
+            # print errors & metrics
+            errors = dict(errors, **eval_stats.average()['confMeter'])
+            t = (time.time() - iter_start_time) / opt.batchSize
+            visualizer.print_current_errors(epoch, epoch_iter, errors, t)
 
         if total_steps % opt.save_latest_freq == 0:
             print('saving the latest model (epoch %d, total_steps %d)' %

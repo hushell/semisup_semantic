@@ -72,6 +72,21 @@ class Visualizer():
                 'ylabel': 'loss'},
             win=self.display_id)
 
+    def plot_current_metrics(self, epoch, counter_ratio, opt, errors):
+        if not hasattr(self, 'plot_metrics'):
+            self.plot_metrics = {'X':[],'Y':[], 'legend':list(errors.keys())}
+        self.plot_metrics['X'].append(epoch + counter_ratio)
+        self.plot_metrics['Y'].append([errors[k] for k in self.plot_metrics['legend']])
+        self.vis.line(
+            X=np.stack([np.array(self.plot_metrics['X'])]*len(self.plot_metrics['legend']),1),
+            Y=np.array(self.plot_metrics['Y']),
+            opts={
+                'title': self.name + ' metric over time',
+                'legend': self.plot_metrics['legend'],
+                'xlabel': 'epoch',
+                'ylabel': 'metric'},
+            win=self.display_id+100)
+
     # errors: same format as |errors| of plotCurrentErrors
     def print_current_errors(self, epoch, i, errors, t):
         message = '(epoch: %d, iters: %d, time: %.3f) ' % (epoch, i, t)
