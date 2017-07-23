@@ -26,7 +26,7 @@ class GeneratorOnlyModel(BaseModel):
 
         # load/define networks
         # Code (paper): G_A (G)
-        opt.which_model_netG = 'resnet_softmax_9blocks'
+        assert(opt.which_model_netG == 'resnet_softmax_9blocks')
         self.netG_A = networks.define_G(opt.input_nc, opt.output_nc,
                                         opt.ngf, opt.which_model_netG, opt.norm, opt.use_dropout, self.gpu_ids)
 
@@ -107,7 +107,6 @@ class GeneratorOnlyModel(BaseModel):
         return OrderedDict([('G_A', G_A), ('Nothing', 0)])
 
     def get_current_visuals(self):
-        #import ipdb; ipdb.set_trace()
         real_A = util.tensor2im(self.real_A.data)
         fake_B = util.tensor2lab(self.fake_B.data, self.trainId2color)
         real_B = util.tensor2lab(self.real_B.data, self.trainId2color)

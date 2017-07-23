@@ -43,13 +43,10 @@ class DiscreteDataset(BaseDataset):
         interp_target = cv2.INTER_NEAREST
         if opt.isTrain:
             if opt.resize_or_crop == 'resize_and_crop':
-                #max_scale = 1.5 * opt.loadSize
-                #min_scale = 0.8 * opt.loadSize
-                #transform_list.append(util.RandomScale(min_scale, max_scale, interp_img, interp_target))
                 scale = float(opt.loadSize) / float(opt.fineSize)
                 transform_list.append(util.Scale(scale, interp_img, interp_target))
 
-            if opt.isTrain and not opt.no_flip:
+            if not opt.no_flip:
                 transform_list.append(util.RandomFlip())
 
             if opt.resize_or_crop != 'no_resize':
