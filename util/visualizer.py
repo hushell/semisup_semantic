@@ -14,7 +14,7 @@ class Visualizer():
         self.name = opt.name
         if self.display_id > 0:
             import visdom
-            self.vis = visdom.Visdom()
+            self.vis = visdom.Visdom(port=opt.port)
 
         if self.use_html:
             self.web_dir = os.path.join(opt.checkpoints_dir, opt.name, 'web')
@@ -27,9 +27,8 @@ class Visualizer():
             log_file.write('================ Training Loss (%s) ================\n' % now)
 
     # |visuals|: dictionary of images to display or save
-    def display_current_results(self, visuals, epoch):
+    def display_current_results(self, visuals, epoch, idx=1):
         if self.display_id > 0: # show images in the browser
-            idx = 1
             for label, image_numpy in visuals.items():
                 #image_numpy = np.flipud(image_numpy)
                 self.vis.image(image_numpy.transpose([2,0,1]), opts=dict(title=label),

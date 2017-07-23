@@ -1,1 +1,1 @@
-python test.py --dataroot ./datasets/maps --name maps_cyclegan --model cycle_gan --phase test
+python test.py --dataroot ./datasets/cityscapes_AB --name city_gen_only --model gen_only --dataset_mode discrete --output_nc 20 --which_model_netG resnet_softmax_9blocks --phase train --port 3430 --how_many 100 --which_epoch 200

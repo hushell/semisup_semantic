@@ -84,6 +84,7 @@ class GeneratorOnlyModel(BaseModel):
 
     def test(self):
         self.real_A = Variable(self.input_A, volatile=True)
+        self.real_B = Variable(self.input_B, volatile=True)
         self.fake_B = self.netG_A.forward(self.real_A)
 
     def get_image_paths(self):
@@ -123,7 +124,6 @@ class GeneratorOnlyModel(BaseModel):
         num_cats = predictions.size(1) - 1 # the first category is for pixels with missing annotation
         groundtruth.add_(-1)
 
-        import ipdb; ipdb.set_trace()
         # The first category (label -1) is for pixels with missing annotation
         valid = torch.ge(groundtruth, 0)
         groundtruth = torch.masked_select(groundtruth, valid)

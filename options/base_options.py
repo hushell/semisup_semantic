@@ -38,6 +38,7 @@ class BaseOptions():
         self.parser.add_argument('--resize_or_crop', type=str, default='resize_and_crop', help='scaling and cropping of images at load time [resize_and_crop|crop|scale_width|no_resize]')
         self.parser.add_argument('--no_flip', action='store_true', help='if specified, do not flip the images for data argumentation')
         self.parser.add_argument('--targetScale', type=float, default=1.0, help='size of the label')
+        self.parser.add_argument('--port', type=int, default=8097, help='port of visdom')
 
         self.initialized = True
 

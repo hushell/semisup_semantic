@@ -8,6 +8,7 @@ import os
 import torch
 
 opt = TrainOptions().parse()
+opt.nThreads = max(opt.batchSize / 2, 2)
 
 os.environ['CUDA_VISIBLE_DEVICES'] = '3'
 # to prevent opencv from initializing CUDA in workers
