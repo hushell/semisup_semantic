@@ -48,5 +48,8 @@ for i, data in enumerate(dataset):
     confMeter = model.get_eval_results()
     eval_stats.update({'confMeter': confMeter})
 
-print('==> Results [%d images]: %s' % (len(dataset), eval_stats.average()))
+msg = '==> %s Results [%d images]: %s' % (opt.phase, len(dataset), eval_stats.average())
+print(msg)
+with open(visualizer.log_name, "a") as log_file:
+    log_file.write('%s\n' % msg)
 webpage.save()
