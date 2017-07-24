@@ -205,7 +205,7 @@ class CycleGANModel(BaseModel):
         self.save_network(self.netG_B, 'G_B', label, self.gpu_ids)
         self.save_network(self.netD_B, 'D_B', label, self.gpu_ids)
 
-    def update_learning_rate(self):
+    def update_learning_rate(self, epoch):
         lrd = self.opt.lr / self.opt.niter_decay
         lr = self.old_lr - lrd
         for param_group in self.optimizer_D_A.param_groups:

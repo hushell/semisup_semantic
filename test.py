@@ -41,7 +41,7 @@ for i, data in enumerate(dataset):
     img_path = model.get_image_paths()
     print('process image... %s' % img_path)
     visualizer.save_images(webpage, visuals, img_path)
-    visualizer.display_current_results(visuals, opt.which_epoch, vidx)
+    #visualizer.display_current_results(visuals, opt.which_epoch, vidx) # localhost:port
     vidx += len(visuals.keys())
 
     # eval results

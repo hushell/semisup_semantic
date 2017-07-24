@@ -18,12 +18,13 @@ os.environ['CUDA_VISIBLE_DEVICES'] = ''
 data_loader = CreateDataLoader(opt)
 dataset = data_loader.load_data()
 dataset_size = len(data_loader)
-print('#training images = %d' % dataset_size)
+dataset_size = dataset_size - (dataset_size % opt.batchSize)
+print('#training images = %d' % len(data_loader))
 
 model = create_model(opt)
 visualizer = Visualizer(opt)
 
-total_steps = 0
+total_steps = 0 if not opt.continue_train else opt.which_epoch*dataset_size
 
 for epoch in range(1, opt.niter + opt.niter_decay + 1):
     epoch_start_time = time.time()
@@ -68,4 +69,4 @@ for epoch in range(1, opt.niter + opt.niter_decay + 1):
           (epoch, opt.niter + opt.niter_decay, time.time() - epoch_start_time))
 
     if epoch > opt.niter:
-        model.update_learning_rate()
+        model.update_learning_rate(epoch+1)

@@ -14,6 +14,8 @@ import torchnet as tnt
 from util.meter import getConfMatrixResults
 
 
+LUT = [(40,0.0001), (100,0.00003), (160,0.00001), (220,0.000003), (240,0.000001)]
+
 class GeneratorOnlyModel(BaseModel):
     def name(self):
         return 'GeneratorOnlyModel'
@@ -26,9 +28,8 @@ class GeneratorOnlyModel(BaseModel):
         self.input_A = self.Tensor(nb, opt.input_nc, size, size)
         self.input_B = self.Tensor(nb, opt.output_nc, size, size)
 
-        # load/define networks
-        # Code (paper): G_A (G)
-        assert(opt.which_model_netG == 'resnet_softmax_9blocks')
+        # load/define networks, Code (paper): G_A (G)
+        #assert(opt.which_model_netG == 'resnet_softmax_9blocks')
         self.netG_A = networks.define_G(opt.input_nc, opt.output_nc,
                                         opt.ngf, opt.which_model_netG, opt.norm, opt.use_dropout, self.gpu_ids)
 
@@ -38,14 +39,16 @@ class GeneratorOnlyModel(BaseModel):
 
         if self.isTrain:
             self.old_lr = opt.lr
+            self.lr_scheme = opt.lr_scheme
             # define loss functions
             self.criterion = torch.nn.NLLLoss2d()
             #self.criterion = torch.nn.L1Loss()
             if len(self.gpu_ids) > 0:
                 self.criterion = self.criterion.cuda()
             # initialize optimizers
-            self.optimizer_G = torch.optim.Adam(itertools.chain(self.netG_A.parameters()),
-                                                lr=opt.lr, betas=(opt.beta1, 0.999))
+            #parameters = filter(lambda p: p.requires_grad, self.netG_A.parameters())
+            parameters = [p for p in self.netG_A.parameters() if p.requires_grad]
+            self.optimizer_G = torch.optim.Adam(itertools.chain(parameters), lr=opt.lr, betas=(opt.beta1, 0.999))
 
             print('---------- Networks initialized -------------')
             networks.print_network(self.netG_A)
@@ -94,6 +97,8 @@ class GeneratorOnlyModel(BaseModel):
     def backward_G(self):
         # loss G_A(A)
         self.fake_B = self.netG_A.forward(self.real_A)
+        #if self.fake_B.data.max() >= 0:
+        #    self.fake_B.data.add_(-1e-20)
         self.loss_G_A = self.criterion(self.fake_B, self.real_B)
         self.loss_G_A.backward()
 
@@ -107,7 +112,7 @@ class GeneratorOnlyModel(BaseModel):
 
     def get_current_errors(self):
         G_A = self.loss_G_A.data[0]
-        return OrderedDict([('G_A', G_A), ('Nothing', 0)])
+        return OrderedDict([('G_A', G_A), ('lr', self.old_lr)])
 
     def get_current_visuals(self):
         real_A = util.tensor2im(self.real_A.data)
@@ -129,11 +134,17 @@ class GeneratorOnlyModel(BaseModel):
     def save(self, label):
         self.save_network(self.netG_A, 'G_A', label, self.gpu_ids)
 
-    def update_learning_rate(self):
-        lrd = self.opt.lr / self.opt.niter_decay
-        lr = self.old_lr - lrd
+    def update_learning_rate(self, epoch):
+        if self.lr_scheme == 'poly':
+            lrd = self.opt.lr / self.opt.niter_decay
+            lr = self.old_lr - lrd
+        elif self.lr_scheme == 'lut':
+            lr = next((lr for (max_epoch, lr) in LUT if max_epoch>epoch), LUT[-1][1])
+        else:
+            raise ValueError("lr scheme [%s] not recognized." % opt.lr_scheme)
+
         for param_group in self.optimizer_G.param_groups:
             param_group['lr'] = lr
 
-        print('update learning rate: %f -> %f' % (self.old_lr, lr))
+        print('===> Update learning rate: %f -> %f' % (self.old_lr, lr))
         self.old_lr = lr

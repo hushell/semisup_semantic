@@ -1,5 +1,6 @@
 import argparse
 import os
+import sys
 from util import util
 
 
@@ -71,4 +72,5 @@ class BaseOptions():
             for k, v in sorted(args.items()):
                 opt_file.write('%s: %s\n' % (str(k), str(v)))
             opt_file.write('-------------- End ----------------\n')
+            opt_file.write('%s' % sys.argv)
         return self.opt

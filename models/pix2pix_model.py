@@ -134,7 +134,7 @@ class Pix2PixModel(BaseModel):
         self.save_network(self.netG, 'G', label, self.gpu_ids)
         self.save_network(self.netD, 'D', label, self.gpu_ids)
 
-    def update_learning_rate(self):
+    def update_learning_rate(self, epoch):
         lrd = self.opt.lr / self.opt.niter_decay
         lr = self.old_lr - lrd
         for param_group in self.optimizer_D.param_groups:
