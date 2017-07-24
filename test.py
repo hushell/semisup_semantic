@@ -7,6 +7,7 @@ from util.visualizer import Visualizer
 from pdb import set_trace as st
 from util import html
 import torch
+from util.meter import *
 
 opt = TestOptions().parse()
 opt.nThreads = 1   # test code only supports nThreads = 1
@@ -28,11 +29,14 @@ web_dir = os.path.join(opt.results_dir, opt.name, '%s_%s' % (opt.phase, opt.whic
 webpage = html.HTML(web_dir, 'Experiment = %s, Phase = %s, Epoch = %s' % (opt.name, opt.phase, opt.which_epoch))
 # test
 vidx = 0
+eval_stats = DAverageMeter()
 for i, data in enumerate(dataset):
     if i >= opt.how_many:
         break
     model.set_input(data)
     model.test()
+
+    # visuals
     visuals = model.get_current_visuals()
     img_path = model.get_image_paths()
     print('process image... %s' % img_path)
@@ -40,4 +44,9 @@ for i, data in enumerate(dataset):
     visualizer.display_current_results(visuals, opt.which_epoch, vidx)
     vidx += len(visuals.keys())
 
+    # eval results
+    confMeter = model.get_eval_results()
+    eval_stats.update({'confMeter': confMeter})
+
+print('==> Results [%d images]: %s' % (len(dataset), eval_stats.average()))
 webpage.save()

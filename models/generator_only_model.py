@@ -11,6 +11,7 @@ from . import networks
 import sys
 import imp
 import torchnet as tnt
+from util.meter import getConfMatrixResults
 
 
 class GeneratorOnlyModel(BaseModel):
@@ -115,29 +116,15 @@ class GeneratorOnlyModel(BaseModel):
         return OrderedDict([('real_A', real_A), ('fake_B', fake_B), ('real_B', real_B)])
 
     def get_eval_results(self):
-        predictions = self.fake_B.data.transpose(1, len(self.fake_B.data.size())-1) # NCHW -> NHWC
-        predictions = predictions.contiguous().view(-1, predictions.size(-1)) # NHWC -> (N*H*W)C
-        groundtruth = self.real_B.data.contiguous().view(-1)
-
-        # -- hacks here: make sure that you do not consider the first
-        # category which is for pixels with missing annotation.
-        num_cats = predictions.size(1) - 1 # the first category is for pixels with missing annotation
-        groundtruth.add_(-1)
-
-        # The first category (label -1) is for pixels with missing annotation
-        valid = torch.ge(groundtruth, 0)
-        groundtruth = torch.masked_select(groundtruth, valid)
-        preds_tuple = predictions.split(split_size=1, dim=1)
-        preds_tuple = preds_tuple[1:]
-        preds_valid = [torch.masked_select(pp, valid).unsqueeze(dim=1) for pp in preds_tuple]
-        predictions = torch.cat(preds_valid, dim=1)
-        assert(predictions.size(1) == num_cats)
-        assert(groundtruth.min() >= 0 and groundtruth.max() < num_cats)
-
-        resConfMeter = tnt.meter.ConfusionMeter(num_cats, normalized=False)
-        resConfMeter.add(predictions, groundtruth)
-
-        return resConfMeter
+        # TODO: diff with SPY and Cityscapes scripts
+        logits      = self.fake_B.data.cpu().numpy()
+        predictions = logits.argmax(1).squeeze().ravel()
+        groundtruth = self.real_B.data.cpu().numpy().ravel()
+        nc = logits.shape[1]
+        cm = np.zeros((nc, nc))
+        for i,n in enumerate(predictions):
+            cm[groundtruth[i]][n] += 1
+        return cm[1:,1:]
 
     def save(self, label):
         self.save_network(self.netG_A, 'G_A', label, self.gpu_ids)

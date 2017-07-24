@@ -110,6 +110,10 @@ class DAverageMeter(object):
                 if not (key in self.values):
                     self.values[key] = LAverageMeter()
                 self.values[key].update(val)
+            elif isinstance(val, np.ndarray):
+                if not (key in self.values):
+                    self.values[key] = AverageConfMeter()
+                self.values[key].update(val)
 
     def average(self):
         average = {}
