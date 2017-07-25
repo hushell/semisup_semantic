@@ -1,1 +1,2 @@
-python test.py --dataroot ./datasets/cityscapes_AB --name city_gen_only --model gen_only --dataset_mode discrete --output_nc 20 --which_model_netG resnet_softmax_9blocks --phase train --port 3430 --how_many 100 --which_epoch 200
+#python test.py --dataroot ./datasets/cityscapes_AB --name city_gen_only --model gen_only --dataset_mode discrete --output_nc 20 --which_model_netG resnet_softmax_9blocks --phase train --port 3430 --how_many 100 --which_epoch 200
+python test.py --dataroot ./datasets/cityscapes_AB --name city_gen_only_resnet50 --model gen_only --dataset_mode discrete --output_nc 20 --which_model_netG resnet50_fcn --phase val --port 3430 --how_many 500 --which_epoch 200
