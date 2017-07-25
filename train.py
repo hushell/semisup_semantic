@@ -24,7 +24,7 @@ print('#training images = %d' % len(data_loader))
 model = create_model(opt)
 visualizer = Visualizer(opt)
 
-total_steps = 0 if not opt.continue_train else opt.which_epoch*dataset_size
+total_steps = 0 if not opt.continue_train else int(opt.which_epoch)*dataset_size
 
 for epoch in range(1, opt.niter + opt.niter_decay + 1):
     model.update_learning_rate(epoch)
