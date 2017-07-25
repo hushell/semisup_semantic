@@ -25,8 +25,9 @@ model = create_model(opt)
 visualizer = Visualizer(opt)
 
 total_steps = 0 if not opt.continue_train else int(opt.which_epoch)*dataset_size
+begin_epoch = 1 if not opt.continue_train else int(opt.which_epoch)+1
 
-for epoch in range(1, opt.niter + opt.niter_decay + 1):
+for epoch in range(begin_epoch, opt.niter + opt.niter_decay + 1):
     model.update_learning_rate(epoch)
 
     epoch_start_time = time.time()
