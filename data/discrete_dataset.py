@@ -43,14 +43,14 @@ class DiscreteDataset(BaseDataset):
         interp_target = cv2.INTER_NEAREST
         if opt.isTrain:
             if opt.resize_or_crop == 'resize_and_crop':
-                scale = float(opt.loadSize) / float(opt.fineSize)
+                scale = float(opt.loadSize) / float(max(opt.widthSize, opt.heightSize))
                 transform_list.append(util.Scale(scale, interp_img, interp_target))
 
             if not opt.no_flip:
                 transform_list.append(util.RandomFlip())
 
             if opt.resize_or_crop != 'no_resize':
-                transform_list.append(util.RandomCrop(crop_width=opt.fineSize, crop_height=opt.fineSize))
+                transform_list.append(util.RandomCrop(crop_width=opt.widthSize, crop_height=opt.heightSize))
 
             transform_list.append(util.ImgTargetTransform(img_transform=transform_img, target_transform=transform_target))
             self.transform_fun = tnt.transform.compose(transform_list)

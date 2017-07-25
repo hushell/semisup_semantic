@@ -24,9 +24,9 @@ class GeneratorOnlyModel(BaseModel):
         BaseModel.initialize(self, opt)
 
         nb = opt.batchSize
-        size = opt.fineSize
-        self.input_A = self.Tensor(nb, opt.input_nc, size, size)
-        self.input_B = self.Tensor(nb, opt.output_nc, size, size)
+        #size = opt.fineSize
+        self.input_A = self.Tensor(nb, opt.input_nc, opt.heightSize, opt.widthSize)
+        self.input_B = self.Tensor(nb, opt.output_nc, opt.heightSize, opt.widthSize)
 
         # load/define networks, Code (paper): G_A (G)
         #assert(opt.which_model_netG == 'resnet_softmax_9blocks')
@@ -97,8 +97,6 @@ class GeneratorOnlyModel(BaseModel):
     def backward_G(self):
         # loss G_A(A)
         self.fake_B = self.netG_A.forward(self.real_A)
-        #if self.fake_B.data.max() >= 0:
-        #    self.fake_B.data.add_(-1e-20)
         self.loss_G_A = self.criterion(self.fake_B, self.real_B)
         self.loss_G_A.backward()
 
