@@ -44,7 +44,7 @@ def define_G(input_nc, output_nc, ngf, which_model_netG, norm='batch', use_dropo
         netG = ResnetSoftmaxGenerator(input_nc, output_nc, ngf, norm_layer=norm_layer, use_dropout=use_dropout, n_blocks=9, gpu_ids=gpu_ids)
     elif which_model_netG == 'resnet50_fcn':
         from .networkResNet50FCN import netResNet50FCN
-        netG = netResNet50FCN(output_nc, gpu_ids=gpu_ids)
+        netG = netResNet50FCN(output_nc, freeze_batch_norm=False, gpu_ids=gpu_ids)
     else:
         print('Generator model name [%s] is not recognized' % which_model_netG)
     if len(gpu_ids) > 0:
