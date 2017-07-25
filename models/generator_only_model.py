@@ -136,8 +136,11 @@ class GeneratorOnlyModel(BaseModel):
 
     def update_learning_rate(self, epoch):
         if self.lr_scheme == 'poly':
-            lrd = self.opt.lr / self.opt.niter_decay
-            lr = self.old_lr - lrd
+            if epoch > opt.niter:
+                lrd = self.opt.lr / self.opt.niter_decay
+                lr = self.old_lr - lrd
+            else:
+                lr = self.opt.lr
         elif self.lr_scheme == 'lut':
             lr = next((lr for (max_epoch, lr) in LUT if max_epoch>epoch), LUT[-1][1])
         else:

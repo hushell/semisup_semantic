@@ -27,6 +27,8 @@ visualizer = Visualizer(opt)
 total_steps = 0 if not opt.continue_train else opt.which_epoch*dataset_size
 
 for epoch in range(1, opt.niter + opt.niter_decay + 1):
+    model.update_learning_rate(epoch)
+
     epoch_start_time = time.time()
     for i, data in enumerate(dataset):
         iter_start_time = time.time()
@@ -67,6 +69,3 @@ for epoch in range(1, opt.niter + opt.niter_decay + 1):
 
     print('End of epoch %d / %d \t Time Taken: %d sec' %
           (epoch, opt.niter + opt.niter_decay, time.time() - epoch_start_time))
-
-    if epoch > opt.niter:
-        model.update_learning_rate(epoch+1)
