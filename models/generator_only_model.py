@@ -48,7 +48,12 @@ class GeneratorOnlyModel(BaseModel):
             # initialize optimizers
             #parameters = filter(lambda p: p.requires_grad, self.netG_A.parameters())
             parameters = [p for p in self.netG_A.parameters() if p.requires_grad]
-            self.optimizer_G = torch.optim.Adam(itertools.chain(parameters), lr=opt.lr, betas=(opt.beta1, 0.999))
+            if opt.optim_method == 'adam':
+                self.optimizer_G = torch.optim.Adam(itertools.chain(parameters), lr=opt.lr, betas=(opt.beta1, 0.999))
+            elif opt.optim_method == 'sgd':
+                self.optimizer_G = torch.optim.SGD(itertools.chain(parameters), lr=opt.lr, momentum=0.9, weight_decay=0.0005)
+            else:
+                raise ValueError("Optim_method [%s] not recognized." % opt.optim_method)
 
             print('---------- Networks initialized -------------')
             networks.print_network(self.netG_A)
@@ -133,8 +138,8 @@ class GeneratorOnlyModel(BaseModel):
         self.save_network(self.netG_A, 'G_A', label, self.gpu_ids)
 
     def update_learning_rate(self, epoch):
-        if self.lr_scheme == 'poly':
-            if epoch > opt.niter:
+        if self.lr_scheme == 'linear':
+            if epoch > self.opt.niter:
                 lrd = self.opt.lr / self.opt.niter_decay
                 lr = self.old_lr - lrd
             else:
