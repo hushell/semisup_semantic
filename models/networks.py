@@ -49,7 +49,8 @@ def define_G(input_nc, output_nc, ngf, which_model_netG, norm='batch', use_dropo
         print('Generator model name [%s] is not recognized' % which_model_netG)
     if len(gpu_ids) > 0:
         netG.cuda(device_id=gpu_ids[0])
-    netG.apply(weights_init)
+    if which_model_netG != 'resnet50_fcn':
+        netG.apply(weights_init)
     return netG
 
 
