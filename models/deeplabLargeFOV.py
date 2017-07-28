@@ -136,6 +136,19 @@ class ResNet(nn.Module):
         #        for i in m.parameters():
         #            i.requires_grad = False
 
+        def f(x):
+            x = self.conv1(x)
+            x = self.bn1(x)
+            x = self.relu(x)
+            x = self.maxpool(x)
+            x = self.layer1(x)
+            x = self.layer2(x)
+            x = self.layer3(x)
+            x = self.layer4(x)
+            x = self.layer5(x)
+            return x
+        self.model = f
+
     def _make_layer(self, block, planes, blocks, stride=1, dilation=1):
         downsample = None
         if stride != 1 or self.inplanes != planes * block.expansion or dilation == 2 or dilation == 4:
@@ -154,19 +167,6 @@ class ResNet(nn.Module):
         return nn.Sequential(*layers)
     def _make_pred_layer(self,block, dilation_series, padding_series,num_classes):
         return block(dilation_series,padding_series,num_classes)
-
-    def f(self, x):
-        x = self.conv1(x)
-        x = self.bn1(x)
-        x = self.relu(x)
-        x = self.maxpool(x)
-        x = self.layer1(x)
-        x = self.layer2(x)
-        x = self.layer3(x)
-        x = self.layer4(x)
-        x = self.layer5(x)
-        return x
-    self.model = f
 
     def forward(self, input):
         if self.gpu_ids and isinstance(input.data, torch.cuda.FloatTensor):

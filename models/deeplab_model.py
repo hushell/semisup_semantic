@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+import torch.nn as nn
 import os
 from collections import OrderedDict
 from torch.autograd import Variable
@@ -68,7 +69,7 @@ class DeeplabModel(BaseModel):
         # load/define networks, Code (paper): G_A (G)
         assert(opt.which_model_netG == 'deeplab')
         self.netG_A = Res_Deeplab(num_classes = opt.output_nc)
-        upsampler = [nn.Upsample(size=(opt.heightSize,opt.widthSize), mode='bilinear'),
+        upsampler = [nn.UpsamplingBilinear2d(size=(opt.heightSize,opt.widthSize)),
                      nn.LogSoftmax()]
         self.upsampler = nn.Sequential(*upsampler)
 
@@ -85,7 +86,7 @@ class DeeplabModel(BaseModel):
             #Scale.layer5.conv2d_list.3.weight
             i_parts = i.split('.')
             # print i_parts
-            if opt.output_nc != 21 or i_parts[1] != 'layer5':
+            if i_parts[1] != 'layer5':
                 new_params['.'.join(i_parts[1:])] = saved_state_dict[i]
         self.netG_A.load_state_dict(new_params)
 
@@ -93,8 +94,8 @@ class DeeplabModel(BaseModel):
 
         if len(self.gpu_ids) > 0:
             assert(torch.cuda.is_available())
-            self.netG_A.cuda(device_id=gpu_ids[0])
-            self.upsampler.cuda(device_id=gpu_ids[0])
+            self.netG_A.cuda(device_id=self.gpu_ids[0])
+            self.upsampler.cuda(device_id=self.gpu_ids[0])
 
         if not self.isTrain or opt.continue_train:
             which_epoch = opt.which_epoch
@@ -111,7 +112,7 @@ class DeeplabModel(BaseModel):
             self.lr_scheme = opt.lr_scheme
 
             assert(opt.optim_method == 'sgd')
-            self.optimizer_G = optim.SGD([{'params': get_1x_lr_params_NOscale(self.netG_A), 'lr': opt.lr },
+            self.optimizer_G = torch.optim.SGD([{'params': get_1x_lr_params_NOscale(self.netG_A), 'lr': opt.lr },
                                           {'params': get_10x_lr_params(self.netG_A),        'lr': 10*opt.lr}],
                                           lr = opt.lr, momentum = MOMENTUM, weight_decay = WEIGHT_DECAY)
 
