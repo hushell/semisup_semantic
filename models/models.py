@@ -18,6 +18,10 @@ def create_model(opt):
         assert(opt.dataset_mode == 'discrete')
         from .generator_only_model import GeneratorOnlyModel
         model = GeneratorOnlyModel()
+    elif opt.model == 'deeplab':
+        assert(opt.dataset_mode == 'discrete')
+        from .deeplab_model import DeeplabModel
+        model = DeeplabModel()
     else:
         raise ValueError("Model [%s] not recognized." % opt.model)
     model.initialize(opt)
