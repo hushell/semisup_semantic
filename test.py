@@ -7,7 +7,7 @@ from util.visualizer import Visualizer
 from pdb import set_trace as st
 from util import html
 import torch
-from util.meter import *
+from util.meter import SegmentationMeter
 
 opt = TestOptions().parse()
 opt.nThreads = 1   # test code only supports nThreads = 1
@@ -27,9 +27,10 @@ visualizer = Visualizer(opt)
 # create website
 web_dir = os.path.join(opt.results_dir, opt.name, '%s_%s' % (opt.phase, opt.which_epoch))
 webpage = html.HTML(web_dir, 'Experiment = %s, Phase = %s, Epoch = %s' % (opt.name, opt.phase, opt.which_epoch))
+
 # test
 vidx = 0
-eval_stats = DAverageMeter()
+eval_stats = SegmentationMeter(n_class=opt.output_nc)
 for i, data in enumerate(dataset):
     if i >= opt.how_many:
         break
@@ -45,10 +46,12 @@ for i, data in enumerate(dataset):
     vidx += len(visuals.keys())
 
     # eval results
-    confMeter = model.get_eval_results()
-    eval_stats.update({'confMeter': confMeter})
+    pred,gt = model.get_pred_gt()
+    eval_stats.update_confmat(gt, pred)
 
-msg = '==> %s Results [%d images]: %s' % (opt.phase, len(dataset), eval_stats.average())
+test_results = eval_stats.get_eval_results()
+msg = '==> %s Results [%d images]: %s\n' % (opt.phase, len(dataset), test_results[0])
+msg += ''.join(['%s: %.2f,' % (cname,ciu) for cname,ciu in zip(model.trainId2name,test_results[1])])
 print(msg)
 with open(visualizer.log_name, "a") as log_file:
     log_file.write('%s\n' % msg)

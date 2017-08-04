@@ -44,16 +44,11 @@ for epoch in range(begin_epoch, opt.niter + opt.niter_decay + 1):
         if total_steps % opt.print_freq == 0:
             # compute losses
             errors = model.get_current_errors()
-            # compute eval result for current batch
-            eval_stats = DAverageMeter()
-            confMeter = model.get_eval_results()
-            eval_stats.update({'confMeter': confMeter})
-            # plot errors, metrics
+            # plot errors
             if opt.display_id > 0:
                 visualizer.plot_current_errors(epoch, float(epoch_iter)/dataset_size, opt, errors)
-                visualizer.plot_current_metrics(epoch, float(epoch_iter)/dataset_size, opt, eval_stats.average()['confMeter'])
-            # print errors & metrics
-            errors = dict(errors, **eval_stats.average()['confMeter'])
+            # print errors
+            #errors = dict(errors, **eval_stats.average()['confMeter'])
             t = (time.time() - iter_start_time) / opt.batchSize
             visualizer.print_current_errors(epoch, epoch_iter, errors, t)
 
@@ -63,10 +58,14 @@ for epoch in range(begin_epoch, opt.niter + opt.niter_decay + 1):
             model.save('latest')
 
     if epoch % opt.save_epoch_freq == 0:
+        # save
         print('saving the model at the end of epoch %d, iters %d' %
               (epoch, total_steps))
         model.save('latest')
         model.save(epoch)
+        # test: TODO -- have a test dataloader
+        #visualizer.plot_current_metrics(epoch, float(epoch_iter)/dataset_size, opt, eval_stats.average()['confMeter'])
+        #eval_stats = SegmentationMeter(n_class=opt.output_nc)
 
     print('End of epoch %d / %d \t Time Taken: %d sec' %
           (epoch, opt.niter + opt.niter_decay, time.time() - epoch_start_time))

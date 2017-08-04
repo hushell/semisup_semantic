@@ -11,7 +11,6 @@ from . import networks
 import sys
 import imp
 import torchnet as tnt
-from util.meter import getConfMatrixResults
 
 
 LUT = [(40,0.0001), (100,0.00003), (160,0.00001), (220,0.000003), (240,0.000001)]
@@ -71,6 +70,8 @@ class GeneratorOnlyModel(BaseModel):
             if trainId2labelId[trainId] == -1:
                 trainId2labelId[trainId] = labelId
         self.trainId2color = label2color[trainId2labelId]
+        clsNames = np.asarray([label.name for label in cslabels.labels], dtype=np.str)
+        self.trainId2name = clsNames[trainId2labelId]
 
     def set_input(self, input):
         AtoB = self.opt.which_direction == 'AtoB'
@@ -123,16 +124,11 @@ class GeneratorOnlyModel(BaseModel):
         real_B = util.tensor2lab(self.real_B.data, self.trainId2color)
         return OrderedDict([('real_A', real_A), ('fake_B', fake_B), ('real_B', real_B)])
 
-    def get_eval_results(self):
-        # TODO: diff with SPY and Cityscapes scripts
+    def get_pred_gt(self):
         logits      = self.fake_B.data.cpu().numpy()
-        predictions = logits.argmax(1).squeeze().ravel()
-        groundtruth = self.real_B.data.cpu().numpy().ravel()
-        nc = logits.shape[1]
-        cm = np.zeros((nc, nc))
-        for i,n in enumerate(predictions):
-            cm[groundtruth[i]][n] += 1
-        return cm[1:,1:]
+        predictions = logits.argmax(1).squeeze()
+        groundtruth = self.real_B.data.cpu().numpy()
+        return predictions, groundtruth
 
     def save(self, label):
         self.save_network(self.netG_A, 'G_A', label, self.gpu_ids)
