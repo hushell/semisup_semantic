@@ -22,6 +22,10 @@ def create_model(opt):
         assert(opt.dataset_mode == 'discrete')
         from .deeplab_model import DeeplabModel
         model = DeeplabModel()
+    elif opt.model == 'gan_ce':
+        assert(opt.dataset_mode == 'discrete')
+        from .gan_ce_model import GANCrossEntModel
+        model = GANCrossEntModel()
     else:
         raise ValueError("Model [%s] not recognized." % opt.model)
     model.initialize(opt)
