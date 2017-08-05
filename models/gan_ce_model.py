@@ -14,7 +14,10 @@ import torchnet as tnt
 
 
 LUT = [(40,0.0001), (100,0.00003), (160,0.00001), (220,0.000003), (240,0.000001)]
+<<<<<<< 0bc0896edb4c415ff8fe6e28a9af815eb4f6e857
 TAU = 0.9
+=======
+>>>>>>> gan_ce works initially
 
 class GANCrossEntModel(BaseModel):
     def name(self):
@@ -26,6 +29,10 @@ class GANCrossEntModel(BaseModel):
         nb = opt.batchSize
         self.input_A = self.Tensor(nb, opt.input_nc, opt.heightSize, opt.widthSize)
         self.input_B = self.Tensor(nb, opt.heightSize, opt.widthSize)
+<<<<<<< 0bc0896edb4c415ff8fe6e28a9af815eb4f6e857
+=======
+        #self.input_B_onehot = self.Tensor(nb, opt.output_nc, opt.heightSize, opt.widthSize)
+>>>>>>> gan_ce works initially
 
         # load/define networks
         self.netG_A = networks.define_G(opt.input_nc, opt.output_nc,
@@ -57,7 +64,11 @@ class GANCrossEntModel(BaseModel):
             # initialize optimizers
             parameters = [p for p in self.netG_A.parameters() if p.requires_grad]
             if opt.optim_method == 'adam':
+<<<<<<< 0bc0896edb4c415ff8fe6e28a9af815eb4f6e857
                 self.optimizer_G = torch.optim.Adam(itertools.chain(parameters), lr=opt.lr, betas=(opt.beta1, 0.999), weight_decay=0.0005)
+=======
+                self.optimizer_G = torch.optim.Adam(itertools.chain(parameters), lr=opt.lr, betas=(opt.beta1, 0.999))
+>>>>>>> gan_ce works initially
             elif opt.optim_method == 'sgd':
                 self.optimizer_G = torch.optim.SGD(itertools.chain(parameters), lr=opt.lr, momentum=0.9, weight_decay=0.0005)
             else:
@@ -88,7 +99,10 @@ class GANCrossEntModel(BaseModel):
         AtoB = self.opt.which_direction == 'AtoB'
         input_A = input['A' if AtoB else 'B']
         input_B = input['B' if AtoB else 'A']
+<<<<<<< 0bc0896edb4c415ff8fe6e28a9af815eb4f6e857
 
+=======
+>>>>>>> gan_ce works initially
         if len(self.gpu_ids) > 0:
             self.input_A = input_A.cuda()
             self.input_B = input_B.long().cuda()
@@ -100,7 +114,10 @@ class GANCrossEntModel(BaseModel):
     def forward(self):
         self.real_A = Variable(self.input_A)
         self.real_B = Variable(self.input_B)
+<<<<<<< 0bc0896edb4c415ff8fe6e28a9af815eb4f6e857
         self.fake_B = self.netG_A.forward(self.real_A)
+=======
+>>>>>>> gan_ce works initially
 
     def test(self):
         self.real_A = Variable(self.input_A, volatile=True)
@@ -126,6 +143,7 @@ class GANCrossEntModel(BaseModel):
     def backward_D_A(self):
         # self.fake_B = G_A(A), fake_B is self.fake_B with random replacements from fake_B_pool
         fake_B = self.fake_B_pool.query(self.fake_B)
+<<<<<<< 0bc0896edb4c415ff8fe6e28a9af815eb4f6e857
 
         if not self.opt.gt_noise:
             #real_B_onehot = np.eye(opt.output_nc)[real_B_int]
@@ -155,11 +173,30 @@ class GANCrossEntModel(BaseModel):
         # cross_ent(G_A(A), B)
         self.loss_G_A_CE = self.criterionCE(torch.nn.functional.log_softmax(self.fake_B), self.real_B)
         self.fake_B = torch.nn.functional.softmax(self.fake_B)
+=======
+        real_B_int = self.real_B.data.clone().unsqueeze(dim=1)
+        real_B_onehot = torch.FloatTensor(fake_B.data.size())
+        real_B_onehot.zero_()
+        if len(self.gpu_ids) > 0:
+            real_B_onehot = real_B_onehot.cuda()
+        real_B_onehot.scatter_(1, real_B_int, 1)
+        real_B_onehot = Variable(real_B_onehot)
+        self.loss_D_A = self.backward_D_basic(self.netD_A, real_B_onehot, fake_B)
+
+    def backward_G(self):
+        self.fake_B = self.netG_A.forward(self.real_A)
+        # cross_ent(G_A(A), B)
+        self.loss_G_A_CE = self.criterionCE(self.fake_B, self.real_B)
+>>>>>>> gan_ce works initially
         # suppose: min_G 1/2 log(1 - D(fake))
         # non-saturating: max_G 1/2 log(D(fake))
         pred_fake = self.netD_A.forward(self.fake_B)
         self.loss_G_A_GAN = self.criterionGAN(pred_fake, True) * 0.5
+<<<<<<< 0bc0896edb4c415ff8fe6e28a9af815eb4f6e857
         self.loss_G_A = self.loss_G_A_CE * self.opt.lambda_A + self.loss_G_A_GAN
+=======
+        self.loss_G_A = self.loss_G_A_CE + self.loss_G_A_GAN * self.opt.lambda_A
+>>>>>>> gan_ce works initially
         self.loss_G_A.backward()
 
     def optimize_parameters(self):
@@ -178,8 +215,12 @@ class GANCrossEntModel(BaseModel):
         Total = self.loss_G_A.data[0]
         CE = self.loss_G_A_CE.data[0]
         GAN = self.loss_G_A_GAN.data[0]
+<<<<<<< 0bc0896edb4c415ff8fe6e28a9af815eb4f6e857
         D = self.loss_D_A.data[0]
         return OrderedDict([('G_Total', Total), ('G_CE', CE), ('G_GAN', GAN), ('D_GAN', D)])
+=======
+        return OrderedDict([('G_Total', Total), ('G_CE', CE), ('G_GAN', GAN)])
+>>>>>>> gan_ce works initially
 
     def get_current_visuals(self):
         real_A = util.tensor2im(self.real_A.data)
@@ -211,8 +252,11 @@ class GANCrossEntModel(BaseModel):
 
         for param_group in self.optimizer_G.param_groups:
             param_group['lr'] = lr
+<<<<<<< 0bc0896edb4c415ff8fe6e28a9af815eb4f6e857
         for param_group in self.optimizer_D_A.param_groups:
             param_group['lr'] = lr
+=======
+>>>>>>> gan_ce works initially
 
         print('===> Update learning rate: %f -> %f' % (self.old_lr, lr))
         self.old_lr = lr
