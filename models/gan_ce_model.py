@@ -25,7 +25,6 @@ class GANCrossEntModel(BaseModel):
         nb = opt.batchSize
         self.input_A = self.Tensor(nb, opt.input_nc, opt.heightSize, opt.widthSize)
         self.input_B = self.Tensor(nb, opt.heightSize, opt.widthSize)
-        #self.input_B_onehot = self.Tensor(nb, opt.output_nc, opt.heightSize, opt.widthSize)
 
         # load/define networks
         self.netG_A = networks.define_G(opt.input_nc, opt.output_nc,
@@ -88,6 +87,7 @@ class GANCrossEntModel(BaseModel):
         AtoB = self.opt.which_direction == 'AtoB'
         input_A = input['A' if AtoB else 'B']
         input_B = input['B' if AtoB else 'A']
+
         if len(self.gpu_ids) > 0:
             self.input_A = input_A.cuda()
             self.input_B = input_B.long().cuda()
@@ -124,13 +124,13 @@ class GANCrossEntModel(BaseModel):
     def backward_D_A(self):
         # self.fake_B = G_A(A), fake_B is self.fake_B with random replacements from fake_B_pool
         fake_B = self.fake_B_pool.query(self.fake_B)
-        real_B_int = self.real_B.data.clone().unsqueeze(dim=1)
-        real_B_onehot = torch.FloatTensor(fake_B.data.size())
+
+        real_B_int = self.input_B.unsqueeze(dim=1)
+        real_B_onehot = self.Tensor(fake_B.data.size())
         real_B_onehot.zero_()
-        if len(self.gpu_ids) > 0:
-            real_B_onehot = real_B_onehot.cuda()
         real_B_onehot.scatter_(1, real_B_int, 1)
         real_B_onehot = Variable(real_B_onehot)
+
         self.loss_D_A = self.backward_D_basic(self.netD_A, real_B_onehot, fake_B)
 
     def backward_G(self):
@@ -141,7 +141,7 @@ class GANCrossEntModel(BaseModel):
         # non-saturating: max_G 1/2 log(D(fake))
         pred_fake = self.netD_A.forward(self.fake_B)
         self.loss_G_A_GAN = self.criterionGAN(pred_fake, True) * 0.5
-        self.loss_G_A = self.loss_G_A_CE + self.loss_G_A_GAN * self.opt.lambda_A
+        self.loss_G_A = self.loss_G_A_CE * self.opt.lambda_A + self.loss_G_A_GAN
         self.loss_G_A.backward()
 
     def optimize_parameters(self):
@@ -191,6 +191,8 @@ class GANCrossEntModel(BaseModel):
             raise ValueError("lr scheme [%s] not recognized." % opt.lr_scheme)
 
         for param_group in self.optimizer_G.param_groups:
+            param_group['lr'] = lr
+        for param_group in self.optimizer_D_A.param_groups:
             param_group['lr'] = lr
 
         print('===> Update learning rate: %f -> %f' % (self.old_lr, lr))
