@@ -32,7 +32,7 @@ webpage = html.HTML(web_dir, 'Experiment = %s, Phase = %s, Epoch = %s' % (opt.na
 vidx = 0
 eval_stats = SegmentationMeter(n_class=opt.output_nc)
 for i, data in enumerate(dataset):
-    if i >= opt.how_many:
+    if i >= opt.ntest:
         break
     model.set_input(data)
     model.test()

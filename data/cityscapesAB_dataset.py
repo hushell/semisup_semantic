@@ -1,8 +1,8 @@
 import os.path
-from data.base_dataset import BaseDataset
 from data.image_folder import make_dataset
 from PIL import Image
 import torch
+import torch.utils.data as data
 import torchnet as tnt
 import numpy as np
 import util
@@ -10,12 +10,12 @@ import cv2
 import torchvision
 
 
-class DiscreteDataset(BaseDataset):
-    def initialize(self, opt):
+class CityscapesABDataset(data.Dataset):
+    def __init__(self, dataroot, opt):
         self.opt = opt
-        self.root = opt.dataroot
-        self.dir_A = os.path.join(opt.dataroot, opt.phase + 'A')
-        self.dir_B = os.path.join(opt.dataroot, opt.phase + 'B')
+        self.root = dataroot
+        self.dir_A = os.path.join(dataroot, opt.phase + 'A')
+        self.dir_B = os.path.join(dataroot, opt.phase + 'B')
 
         self.A_paths = make_dataset(self.dir_A)
         self.B_paths = make_dataset(self.dir_B)
@@ -55,7 +55,8 @@ class DiscreteDataset(BaseDataset):
             transform_list.append(util.ImgTargetTransform(img_transform=transform_img, target_transform=transform_target))
             self.transform_fun = tnt.transform.compose(transform_list)
         else:
-            target_scale = opt.targetScale if hasattr(opt, 'target_scale') else 1.0
+            #target_scale = opt.targetScale if hasattr(opt, 'target_scale') else 1.0
+            target_scale = 1.0
             self.transform_fun = tnt.transform.compose([
                 util.Scale(scale=target_scale, interp_img=interp_img, interp_target=interp_target),
                 util.ImgTargetTransform(img_transform=transform_img, target_transform=transform_target),
@@ -68,9 +69,6 @@ class DiscreteDataset(BaseDataset):
         A_img = np.array(Image.open(A_path), dtype=np.float32)
         B_img = np.array(Image.open(B_path), dtype=np.int32)
 
-        #print('=== B_img.size = {}'.format(B_img.shape))
-        #print('=== B_path = {}'.format(B_path))
-        #import ipdb; ipdb.set_trace()
         A_img, B_img = self.transform_fun((A_img, B_img))
 
         return {'A': A_img, 'B': B_img,
@@ -80,4 +78,4 @@ class DiscreteDataset(BaseDataset):
         return min(len(self.A_paths), len(self.B_paths))
 
     def name(self):
-        return 'DiscreteDataset'
+        return 'CityscapesABDataset'
