@@ -3,17 +3,22 @@ from options.train_options import TrainOptions
 from data.data_loader import CreateDataLoader
 from models.models import create_model
 from util.visualizer import Visualizer
-from util.meter import *
+from util.meter import SegmentationMeter
+from experiment_manager import ExperimentManager
 import os
 import torch
 
 opt = TrainOptions().parse()
-opt.nThreads = max(opt.batchSize / 2, 2)
 
-os.environ['CUDA_VISIBLE_DEVICES'] = '3'
+os.environ['CUDA_VISIBLE_DEVICES'] = opt.gpu_ids
 # to prevent opencv from initializing CUDA in workers
 torch.randn(8).cuda()
 os.environ['CUDA_VISIBLE_DEVICES'] = ''
+
+#######################################
+# data_loaders, visualizer, exp_manager
+exp = ExperimentManager(opt.name, opt.checkpoints_dir)
+exp.init()
 
 data_loader = CreateDataLoader(opt)
 dataset = data_loader.load_data()
@@ -21,9 +26,15 @@ dataset_size = len(data_loader)
 dataset_size = dataset_size - (dataset_size % opt.batchSize)
 print('#training images = %d' % len(data_loader))
 
-model = create_model(opt)
 visualizer = Visualizer(opt)
 
+######################################
+# model, optimizer
+model = create_model(opt)
+
+
+######################################
+# main loop
 total_steps = 0 if not opt.continue_train else int(opt.which_epoch)*dataset_size
 begin_epoch = 1 if not opt.continue_train else int(opt.which_epoch)+1
 
