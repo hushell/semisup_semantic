@@ -14,6 +14,7 @@ import torchnet as tnt
 
 
 LUT = [(40,0.0001), (100,0.00003), (160,0.00001), (220,0.000003), (240,0.000001)]
+TAU = 0.9
 
 class GANCrossEntModel(BaseModel):
     def name(self):
@@ -56,7 +57,7 @@ class GANCrossEntModel(BaseModel):
             # initialize optimizers
             parameters = [p for p in self.netG_A.parameters() if p.requires_grad]
             if opt.optim_method == 'adam':
-                self.optimizer_G = torch.optim.Adam(itertools.chain(parameters), lr=opt.lr, betas=(opt.beta1, 0.999))
+                self.optimizer_G = torch.optim.Adam(itertools.chain(parameters), lr=opt.lr, betas=(opt.beta1, 0.999), weight_decay=0.0005)
             elif opt.optim_method == 'sgd':
                 self.optimizer_G = torch.optim.SGD(itertools.chain(parameters), lr=opt.lr, momentum=0.9, weight_decay=0.0005)
             else:
@@ -125,10 +126,25 @@ class GANCrossEntModel(BaseModel):
         # self.fake_B = G_A(A), fake_B is self.fake_B with random replacements from fake_B_pool
         fake_B = self.fake_B_pool.query(self.fake_B)
 
-        real_B_int = self.input_B.unsqueeze(dim=1)
-        real_B_onehot = self.Tensor(fake_B.data.size())
-        real_B_onehot.zero_()
-        real_B_onehot.scatter_(1, real_B_int, 1)
+        if not self.opt.gt_noise:
+            #real_B_onehot = np.eye(opt.output_nc)[real_B_int]
+            real_B_int = self.input_B.unsqueeze(dim=1)
+            real_B_onehot = self.Tensor(fake_B.data.size())
+            real_B_onehot.zero_()
+            real_B_onehot.scatter_(1, real_B_int, 1)
+        else:
+            real_B_int = self.input_B.cpu().numpy()
+            fake_B_cpy = fake_B.data.cpu().numpy()
+            nn,hh,ww = np.meshgrid(np.arange(real_B.shape[0]), np.arange(real_B.shape[2]), np.arange(real_B.shape[3]),
+                                   indexing='ij')
+            S = fake_B_cpy[nn,real_B_int,hh,ww]
+            Y = np.maximum(TAU, S)
+            coeff = (1-Y) / (1-S)
+            coeff = coeff[:,np.newaxis,...]
+            real_B_onehot = fake_B_cpy * coeff
+            real_B_onehot[nn,real_B_int,hh,ww] = Y
+            if len(self.gpu_ids) > 0:
+                real_B_onehot = real_B_onehot.cuda()
         real_B_onehot = Variable(real_B_onehot)
 
         self.loss_D_A = self.backward_D_basic(self.netD_A, real_B_onehot, fake_B)
@@ -160,7 +176,8 @@ class GANCrossEntModel(BaseModel):
         Total = self.loss_G_A.data[0]
         CE = self.loss_G_A_CE.data[0]
         GAN = self.loss_G_A_GAN.data[0]
-        return OrderedDict([('G_Total', Total), ('G_CE', CE), ('G_GAN', GAN)])
+        D = self.loss_D_A.data[0]
+        return OrderedDict([('G_Total', Total), ('G_CE', CE), ('G_GAN', GAN), ('D_GAN', D)])
 
     def get_current_visuals(self):
         real_A = util.tensor2im(self.real_A.data)
