@@ -100,6 +100,7 @@ class GANCrossEntModel(BaseModel):
     def forward(self):
         self.real_A = Variable(self.input_A)
         self.real_B = Variable(self.input_B)
+        self.fake_B = self.netG_A.forward(self.real_A)
 
     def test(self):
         self.real_A = Variable(self.input_A, volatile=True)
@@ -135,7 +136,7 @@ class GANCrossEntModel(BaseModel):
         else:
             real_B_int = self.input_B.cpu().numpy()
             fake_B_cpy = fake_B.data.cpu().numpy()
-            nn,hh,ww = np.meshgrid(np.arange(real_B.shape[0]), np.arange(real_B.shape[2]), np.arange(real_B.shape[3]),
+            nn,hh,ww = np.meshgrid(np.arange(fake_B_cpy.shape[0]), np.arange(fake_B_cpy.shape[2]), np.arange(fake_B_cpy.shape[3]),
                                    indexing='ij')
             S = fake_B_cpy[nn,real_B_int,hh,ww]
             Y = np.maximum(TAU, S)
@@ -143,6 +144,7 @@ class GANCrossEntModel(BaseModel):
             coeff = coeff[:,np.newaxis,...]
             real_B_onehot = fake_B_cpy * coeff
             real_B_onehot[nn,real_B_int,hh,ww] = Y
+            real_B_onehot = torch.from_numpy(real_B_onehot)
             if len(self.gpu_ids) > 0:
                 real_B_onehot = real_B_onehot.cuda()
         real_B_onehot = Variable(real_B_onehot)
@@ -150,9 +152,9 @@ class GANCrossEntModel(BaseModel):
         self.loss_D_A = self.backward_D_basic(self.netD_A, real_B_onehot, fake_B)
 
     def backward_G(self):
-        self.fake_B = self.netG_A.forward(self.real_A)
         # cross_ent(G_A(A), B)
-        self.loss_G_A_CE = self.criterionCE(self.fake_B, self.real_B)
+        self.loss_G_A_CE = self.criterionCE(torch.nn.functional.log_softmax(self.fake_B), self.real_B)
+        self.fake_B = torch.nn.functional.softmax(self.fake_B)
         # suppose: min_G 1/2 log(1 - D(fake))
         # non-saturating: max_G 1/2 log(D(fake))
         pred_fake = self.netD_A.forward(self.fake_B)

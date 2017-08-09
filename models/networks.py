@@ -212,7 +212,7 @@ class ResnetSoftmaxGenerator(nn.Module):
 
         model += [nn.Conv2d(ngf, output_nc, kernel_size=7, padding=3)]
         #model += [nn.Tanh()]
-        model += [nn.LogSoftmax()]
+        #model += [nn.LogSoftmax()]
 
         self.model = nn.Sequential(*model)
 
