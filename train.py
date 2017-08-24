@@ -1,7 +1,7 @@
 import time
 from options.train_options import TrainOptions
 from data.data_loader import CreateDataLoader
-from models.models import create_model
+from models.trainer import CreateTrainer
 from util.visualizer import Visualizer
 from experiment_manager import ExperimentManager
 import os
@@ -19,8 +19,10 @@ opt.gpu_ids = range(0,len(opt.gpu_ids)) # new range starting from 0
 ######################################
 # data_loaders, visualizer, trainer(models, optimizers)
 opt.phase = 'val'
+opt.isTrain = False
 val_loader = CreateDataLoader(opt)
 opt.phase = 'train'
+opt.isTrain = True
 train_loader = CreateDataLoader(opt)
 visualizer = Visualizer(opt)
 trainer = CreateTrainer(opt)
@@ -55,7 +57,7 @@ for epoch in range(begin_epoch, opt.niter+opt.niter_decay+1):
 
         # plot metrics
         if total_steps % opt.print_freq == 0:
-            expmgr.print_plot_current_metrics(epoch, total_steps, t)
+            expmgr.print_plot_current_losses(epoch, total_steps, t)
 
     if epoch % opt.save_epoch_freq == 0:
         print('===> Saving the model at the end of epoch %d, total_iters %d' % (epoch, total_steps))

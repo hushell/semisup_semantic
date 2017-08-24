@@ -76,7 +76,7 @@ class ExperimentManager():
 
     def plot_current_images(self, epoch, i, do_save=False):
         images = self.trainer.get_current_visuals()
-        for k, im in images:
+        for k, im in images.items():
             if 'B' in k:
                 images[k] = util.tensor2lab(im, self.data_loader['train'].dataset.label2color)
             else:
@@ -86,7 +86,7 @@ class ExperimentManager():
     def print_plot_current_losses(self, epoch, total_i, t):
         losses = self.trainer.get_current_losses()
         self.visualizer.print_current_metrics(epoch, total_i, t, losses)
-        self.visualizer.plot_current_metrics(metrics=losses, total_i)
+        self.visualizer.plot_current_metrics(losses, total_i)
 
     def evaluation(phase='train'):
         eval_stats = SegmentationMeter(n_class=opt.output_nc)

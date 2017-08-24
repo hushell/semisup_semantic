@@ -23,6 +23,6 @@
   },
   "cityscapesAB":
   {
-    "data_path": "/home/hus/working/pytorch-dir/pytorch-CycleGAN-and-pix2pix/datasets/cityscapes_AB/"
+    "data_path": "./datasets/cityscapes_AB/"
   }
 }

@@ -11,8 +11,8 @@ import collections
 # |imtype|: the desired type of the converted numpy array
 def tensor2im(image_tensor, imtype=np.uint8):
     image_numpy = image_tensor[0]
-    #image_numpy = (np.transpose(image_numpy, (1, 2, 0)) + 1) / 2.0 * 255.0
-    image_numpy = (np.transpose(image_numpy, (1, 2, 0))) * 255.0
+    #image_numpy = (np.transpose(image_numpy, (1, 2, 0))) * 255.0
+    image_numpy = image_numpy * 255.0
     return image_numpy.astype(imtype)
 
 def tensor2lab(lab_tensor, label2color):
@@ -25,7 +25,7 @@ def tensor2lab(lab_tensor, label2color):
     seg_map = seg_map.astype(np.int32)
     assert(len(seg_map.shape) == 2)
     seg_image = label2color[seg_map].astype(np.uint8)
-    return seg_image
+    return seg_image.transpose((2,0,1))
 
 def diagnose_network(net, name='network'):
     mean = 0.0
