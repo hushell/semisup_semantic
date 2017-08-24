@@ -15,7 +15,7 @@ class CustomDatasetDataLoader(object):
             drop_last=True)
 
     def __iter__(self):
-        return self.dataloader
+        return self.dataloader.__iter__()
 
     def __len__(self):
         return len(self.dataset)
@@ -27,15 +27,15 @@ def CreateDataset(opt):
     dataset = None
     data_path = get_data_path(opt.dataset)
     if opt.dataset == 'pascal':
-        from data.pascal_voc_dataset import PascalVOCDataset
+        from .pascal_voc_dataset import PascalVOCDataset
         dataset = PascalVOCDataset(data_path, is_transform=True, img_size=(opt.heightSize, opt.widthSize))
     elif opt.dataset == 'cityscapesAB':
-        from data.cityscapesAB_dataset import CityscapesDataset
-        dataset = CityscapesDataset(data_path, opt)
+        from .cityscapesAB_dataset import CityscapesABDataset
+        dataset = CityscapesABDataset(data_path, opt)
     else:
         raise ValueError("Dataset [%s] not recognized." % opt.dataset)
 
-    print("dataset [%s] was created" % (dataset.name()))
+    print("===> dataset [%s] was created" % (dataset.name()))
     return dataset
 
 def get_data_path(name, config_file='config.json'):

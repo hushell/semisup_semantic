@@ -67,15 +67,16 @@ class Visualizer():
             self.plot_metrics['X'].append(total_i)
 
         # assert self.plot_metrics exists
-        self.vis.line(
-            X=np.array(self.plot_metrics['X']),
-            Y=np.array(self.plot_metrics['Y']),
-            opts={
-                'title': self.name + ' metrics over iteration',
-                'legend': self.plot_metrics['legends']
-                'xlabel': 'iteration',
-                'ylabel': 'metrics'},
-            win=self.display_id)
+        if len(self.plot_metrics['Y']) > 1:
+            self.vis.line(
+                X=np.array(self.plot_metrics['X']),
+                Y=np.array(self.plot_metrics['Y']),
+                opts={
+                    'title': self.name + ' metrics over iteration',
+                    'legend': self.plot_metrics['legends'],
+                    'xlabel': 'iteration',
+                    'ylabel': 'metrics'},
+                win=self.display_id)
 
     # print metrics
     def print_current_metrics(self, epoch, total_i, t, metrics):

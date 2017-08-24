@@ -48,9 +48,9 @@ class CrossEntropyTrainer(BaseTrainer):
         # forward
         self.forward()
         # backward
-        self.optimizer_G.zero_grad()
+        self.optimizers['G_A'].zero_grad()
         self.backward()
-        self.optimizer_G.step()
+        self.optimizers['G_A'].step()
 
     def get_current_losses(self):
         return {'G_A': self.losses['G_A'].data[0]}
