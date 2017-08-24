@@ -62,6 +62,22 @@ class CityscapesABDataset(data.Dataset):
                 util.ImgTargetTransform(img_transform=transform_img, target_transform=transform_target),
             ])
 
+        # visualization
+        cslabels = imp.load_source("",'%s/labels.py' % self.dataroot)
+        label2trainId = np.asarray([(1+label.trainId) if label.trainId < 255 else 0 for label in cslabels.labels], dtype=np.float32)
+        label2color = np.asarray([(label.color) for label in cslabels.labels], dtype=np.uint8)
+        num_cats      = 1+19 # the first extra category is for the pixels with missing category
+        trainId2labelId = np.ndarray([num_cats], dtype=np.int32)
+        trainId2labelId.fill(-1)
+        for labelId in range(len(cslabels.labels)):
+            trainId = int(label2trainId[labelId])
+            if trainId2labelId[trainId] == -1:
+                trainId2labelId[trainId] = labelId
+        self.label2color = label2color[trainId2labelId]
+        clsNames = np.asarray([label.name for label in cslabels.labels], dtype=np.str)
+        self.label2name = clsNames[trainId2labelId]
+
+
     def __getitem__(self, index):
         A_path = self.A_paths[index]
         B_path = self.B_paths[index]
