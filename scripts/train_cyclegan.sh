@@ -1,2 +1,0 @@
-#python train.py --dataroot ./datasets/cityscapes_AB --name city_gen_only --model gen_only --dataset_mode discrete --pool_size 50 --output_nc 20 --which_model_netG resnet_softmax_9blocks --batchSize 8 --continue_train
-python train.py --dataroot ./datasets/cityscapes_AB --name city_gen_only_resnet50 --model gen_only --dataset_mode discrete --output_nc 20 --which_model_netG resnet50_fcn --batchSize 1 --lr 0.0001 --lr_scheme lut --beta1 0.5 --niter 160

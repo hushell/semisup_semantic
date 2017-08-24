@@ -2,10 +2,9 @@ import torch.utils.data
 
 def CreateDataLoader(opt):
     data_loader = CustomDatasetDataLoader(opt)
-    print(data_loader.name())
     return data_loader
 
-class CustomDatasetDataLoader():
+class CustomDatasetDataLoader(object):
     def __init__(self, opt):
         self.dataset = CreateDataset(opt)
         self.dataloader = torch.utils.data.DataLoader(
@@ -15,7 +14,7 @@ class CustomDatasetDataLoader():
             num_workers=int(opt.nThreads),
             drop_last=True)
 
-    def load_data(self):
+    def __iter__(self):
         return self.dataloader
 
     def __len__(self):

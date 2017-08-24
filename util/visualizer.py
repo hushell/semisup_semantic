@@ -7,7 +7,6 @@ from . import html
 
 class Visualizer():
     def __init__(self, opt):
-        # self.opt = opt
         self.display_id = opt.display_id
         self.use_html = opt.isTrain and not opt.no_html
         self.win_size = opt.display_winsize
@@ -19,23 +18,25 @@ class Visualizer():
         if self.use_html:
             self.web_dir = os.path.join(opt.checkpoints_dir, opt.name, 'web')
             self.img_dir = os.path.join(self.web_dir, 'images')
-            print('create web directory %s...' % self.web_dir)
+            print('===> Visualizer.__init__(): create web directory %s...' % self.web_dir)
             util.mkdirs([self.web_dir, self.img_dir])
+
         self.log_name = os.path.join(opt.checkpoints_dir, opt.name, 'loss_log.txt')
         with open(self.log_name, "a") as log_file:
             now = time.strftime("%c")
             log_file.write('================ Training Loss (%s) ================\n' % now)
 
     # |visuals|: dictionary of images to display or save
-    def display_current_results(self, visuals, epoch, idx=1):
+    def display_current_results(self, visuals, epoch, it, do_save=False, idx=1):
         if self.display_id > 0: # show images in the browser
             for label, image_numpy in visuals.items():
                 #image_numpy = np.flipud(image_numpy)
-                self.vis.image(image_numpy.transpose([2,0,1]), opts=dict(title=label),
-                                   win=self.display_id + idx)
+                self.vis.image(image_numpy, opts=dict(title='%d,%d: %s' % (epoch,it,label)),
+                               win=self.display_id + idx)
                 idx += 1
 
-        if self.use_html: # save images to a html file
+        # save images to a html file
+        if self.use_html and do_save:
             for label, image_numpy in visuals.items():
                 img_path = os.path.join(self.img_dir, 'epoch%.3d_%s.png' % (epoch, label))
                 util.save_image(image_numpy, img_path)
@@ -55,41 +56,31 @@ class Visualizer():
                 webpage.add_images(ims, txts, links, width=self.win_size)
             webpage.save()
 
-    # errors: dictionary of error labels and values
-    def plot_current_errors(self, epoch, counter_ratio, opt, errors):
-        if not hasattr(self, 'plot_data'):
-            self.plot_data = {'X':[],'Y':[], 'legend':list(errors.keys())}
-        self.plot_data['X'].append(epoch + counter_ratio)
-        self.plot_data['Y'].append([errors[k] for k in self.plot_data['legend']])
-        self.vis.line(
-            X=np.stack([np.array(self.plot_data['X'])]*len(self.plot_data['legend']),1),
-            Y=np.array(self.plot_data['Y']),
-            opts={
-                'title': self.name + ' loss over time',
-                'legend': self.plot_data['legend'],
-                'xlabel': 'epoch',
-                'ylabel': 'loss'},
-            win=self.display_id)
+    # plot metrics
+    def plot_current_metrics(self, metrics, total_i):
+        if self.display_id <= 0:
+            return
+        if metrics: # not empty
+            if not hasattr(self, 'plot_metrics'):
+                self.plot_metrics = {'Y':[], 'X':[], 'legends':metrics.keys()};
+            self.plot_metrics['Y'].append(metrics.values())
+            self.plot_metrics['X'].append(total_i)
 
-    def plot_current_metrics(self, epoch, counter_ratio, opt, errors):
-        if not hasattr(self, 'plot_metrics'):
-            self.plot_metrics = {'X':[],'Y':[], 'legend':list(errors.keys())}
-        self.plot_metrics['X'].append(epoch + counter_ratio)
-        self.plot_metrics['Y'].append([errors[k] for k in self.plot_metrics['legend']])
+        # assert self.plot_metrics exists
         self.vis.line(
-            X=np.stack([np.array(self.plot_metrics['X'])]*len(self.plot_metrics['legend']),1),
+            X=np.array(self.plot_metrics['X']),
             Y=np.array(self.plot_metrics['Y']),
             opts={
-                'title': self.name + ' metric over time',
-                'legend': self.plot_metrics['legend'],
-                'xlabel': 'epoch',
-                'ylabel': 'metric'},
-            win=self.display_id+100)
+                'title': self.name + ' metrics over iteration',
+                'legend': self.plot_metrics['legends']
+                'xlabel': 'iteration',
+                'ylabel': 'metrics'},
+            win=self.display_id)
 
-    # errors: same format as |errors| of plotCurrentErrors
-    def print_current_errors(self, epoch, i, errors, t):
-        message = '(epoch: %d, iters: %d, time: %.3f) ' % (epoch, i, t)
-        for k, v in errors.items():
+    # print metrics
+    def print_current_metrics(self, epoch, total_i, t, metrics):
+        message = '(epoch: %d, iters: %d, time: %.3f) ' % (epoch, total_i, t)
+        for k, v in metrics.items():
             dformat = '%.e' if v < 1e-3 else '%.3f'
             message += '%s: {} '.format(dformat) % (k, v)
 

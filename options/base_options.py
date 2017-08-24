@@ -48,7 +48,7 @@ class BaseOptions():
         self.parser.add_argument('--display_winsize', type=int, default=256,  help='display window size')
         self.parser.add_argument('--display_id', type=int, default=1, help='window id of the web display')
         self.parser.add_argument('--port', type=int, default=8097, help='port of visdom')
-        self.parser.add_argument('--gpu_ids', type=str, default='0', help='gpu ids: e.g. 0  0,1,2, 0,2')
+        self.parser.add_argument('--gpu_ids', type=str, default='0', help='gpu ids: e.g. 0; 0,2')
 
         self.initialized = True
 
