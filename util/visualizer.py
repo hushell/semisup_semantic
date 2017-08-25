@@ -18,11 +18,11 @@ class Visualizer():
         if self.use_html:
             self.web_dir = os.path.join(opt.checkpoints_dir, opt.name, 'web')
             self.img_dir = os.path.join(self.web_dir, 'images')
-            print('===> Visualizer.__init__(): create web directory %s...' % self.web_dir)
+            print('===> Create web directory: %s' % self.web_dir)
             util.mkdirs([self.web_dir, self.img_dir])
 
         self.log_name = os.path.join(opt.checkpoints_dir, opt.name, 'loss_log.txt')
-        with open(self.log_name, "a") as log_file:
+        with open(self.log_name, "w") as log_file:
             now = time.strftime("%c")
             log_file.write('================ Training Loss (%s) ================\n' % now)
 
@@ -31,7 +31,7 @@ class Visualizer():
         if self.display_id > 0: # show images in the browser
             for label, image_numpy in visuals.items():
                 #image_numpy = np.flipud(image_numpy)
-                self.vis.image(image_numpy, opts=dict(title='%d,%d: %s' % (epoch,it,label)),
+                self.vis.image(image_numpy, opts=dict(title='epoch%d, iter%d: %s' % (epoch,it,label)),
                                win=self.display_id + idx)
                 idx += 1
 
@@ -39,7 +39,7 @@ class Visualizer():
         if self.use_html and do_save:
             for label, image_numpy in visuals.items():
                 img_path = os.path.join(self.img_dir, 'epoch%.3d_%s.png' % (epoch, label))
-                util.save_image(image_numpy, img_path)
+                util.save_image(image_numpy.transpose((1,2,0)), img_path)
             # update website
             webpage = html.HTML(self.web_dir, 'Experiment name = %s' % self.name, reflesh=1)
             for n in range(epoch, 0, -1):

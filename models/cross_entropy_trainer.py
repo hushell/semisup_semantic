@@ -1,12 +1,9 @@
 import numpy as np
 import torch
 import os
-from collections import OrderedDict
 from torch.autograd import Variable
-from util.image_pool import ImagePool
 from .trainer import BaseTrainer
 from . import networks
-import torchnet as tnt
 
 
 class CrossEntropyTrainer(BaseTrainer):
@@ -26,7 +23,6 @@ class CrossEntropyTrainer(BaseTrainer):
             print('-----------------------------------------------')
 
     def _set_model(self, opt):
-        # load/define networks, Code (paper): G_A (G)
         self.models['G_A'] = networks.define_G(opt.input_nc, opt.output_nc, opt.ngf, opt.which_model_netG,
                                                   opt.norm, opt.use_dropout, self.gpu_ids)
 

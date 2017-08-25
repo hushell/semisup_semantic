@@ -1,5 +1,6 @@
 import numpy as np
 
+# TODO: double check the evaluation code, e.g., ignored class 0
 class SegmentationMeter(object):
     def __init__(self, n_class):
         self.n_class = n_class

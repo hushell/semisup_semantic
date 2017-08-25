@@ -34,14 +34,21 @@ if opt.continue_train:
     expmgr.resume(opt.which_epoch)
 
 ######################################
-# main loop
 total_steps = 0 if not opt.continue_train else int(opt.which_epoch)*len(train_loader)
 begin_epoch = 1 if not opt.continue_train else int(opt.which_epoch)+1
 
-for epoch in range(begin_epoch, opt.niter+opt.niter_decay+1):
-    trainer.update_learning_rate(epoch)
+# on begin training
+train_acc = expmgr.evaluation('train')
+val_acc = expmgr.evaluation('val')
+metrics = {'train_acc': train_acc, 'val_acc': val_acc, 'epoch': 0}
+expmgr.update_history(metrics)
 
+# main loop
+for epoch in range(begin_epoch, opt.niter+opt.niter_decay+1):
+    # on begin epoch
+    trainer.update_learning_rate(epoch)
     epoch_start_time = time.time()
+
     for i, data in enumerate(train_loader):
         total_steps += opt.batchSize
 
@@ -59,17 +66,24 @@ for epoch in range(begin_epoch, opt.niter+opt.niter_decay+1):
         if total_steps % opt.print_freq == 0:
             expmgr.print_plot_current_losses(epoch, total_steps, t)
 
+    # on end epoch
+    expmgr.plot_current_images(epoch, i, do_save=True)
+    msg = '===> End of epoch %d / %d \t Time Taken: %.2f sec\n' % \
+                (epoch, opt.niter+opt.niter_decay, time.time() - epoch_start_time)
+
     if epoch % opt.save_epoch_freq == 0:
-        print('===> Saving the model at the end of epoch %d, total_iters %d' % (epoch, total_steps))
+        msg += '===> Saving the model at the end of epoch %d, total_iters %d\n' % (epoch, total_steps)
         expmgr.save_weights(epoch)
         expmgr.save_optimizer(epoch)
 
         train_acc = expmgr.evaluation('train')
-        val_acc = expmgr.evaluation('train')
+        val_acc = expmgr.evaluation('val')
         metrics = {'train_acc': train_acc, 'val_acc': val_acc, 'epoch': epoch, 'lr': trainer.old_lr}
         expmgr.update_history(metrics)
 
-    print('===> End of epoch %d / %d \t Time Taken: %d sec' %
-          (epoch, opt.niter+opt.niter_decay, time.time() - epoch_start_time))
+    print(msg)
+    with open(visualizer.log_name, "a") as log_file:
+        log_file.write('%s' % msg)
 
+# on end training
 expmgr.save_history()

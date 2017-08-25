@@ -22,5 +22,5 @@ class TrainOptions(BaseOptions):
         self.parser.add_argument('--no_html', action='store_true', help='do not save intermediate training results to [opt.checkpoints_dir]/[opt.name]/web/')
         self.parser.add_argument('--display_freq', type=int, default=100, help='frequency of showing training results on screen')
         self.parser.add_argument('--print_freq', type=int, default=100, help='frequency of showing training results on console')
-        self.parser.add_argument('--save_epoch_freq', type=int, default=10, help='frequency of saving checkpoints at the end of epochs')
+        self.parser.add_argument('--save_epoch_freq', type=int, default=5, help='frequency of saving checkpoints at the end of epochs')
         self.isTrain = True

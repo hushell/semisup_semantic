@@ -1,4 +1,5 @@
 import os
+import time
 import sys
 import shutil
 import numpy as np
@@ -11,6 +12,7 @@ from util.meter import SegmentationMeter
 class ExperimentManager():
     def __init__(self, opt, trainer, visualizer, train_loader, val_loader=None, test_loader=None):
         # components
+        self.opt = opt
         self.trainer = trainer
         self.visualizer = visualizer
         self.metrics_history = pd.DataFrame(columns=['train_acc', 'val_acc', 'epoch', 'lr'])
@@ -88,8 +90,9 @@ class ExperimentManager():
         self.visualizer.print_current_metrics(epoch, total_i, t, losses)
         self.visualizer.plot_current_metrics(losses, total_i)
 
-    def evaluation(phase='train'):
-        eval_stats = SegmentationMeter(n_class=opt.output_nc)
+    def evaluation(self, phase='train'):
+        eval_stats = SegmentationMeter(n_class=self.opt.output_nc)
+        start_time = time.time()
         for data in self.data_loader[phase]:
             self.trainer.set_input(data)
             self.trainer.test()
@@ -97,12 +100,13 @@ class ExperimentManager():
             eval_stats.update_confmat(gt, pred)
 
         eval_results = eval_stats.get_eval_results()
-        msg = '==> %s Results [%d images]: %s\n' % (phase, len(self.data_loader[phase]), eval_results[0])
+        msg = '==> %s Results [%d images] \t Time Taken: %.2f sec: %s\n' % \
+                    (phase, len(self.data_loader[phase]), time.time()-start_time, eval_results[0])
         msg += 'Per-class IoU:\n'
         msg += ''.join(['%s: %.2f\n' % (cname,ciu)
                         for cname,ciu in zip(self.data_loader['train'].dataset.label2name, eval_results[1])])
         print(msg)
         with open(self.visualizer.log_name, "a") as log_file:
-            log_file.write('%s\n' % msg)
+            log_file.write('%s' % msg)
 
         return eval_results[0]['Mean IoU']
