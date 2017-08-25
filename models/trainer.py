@@ -1,6 +1,7 @@
 import os
 import torch
 import itertools
+from torch.autograd import Variable
 
 LUT = [(40,0.0001), (100,0.00003), (160,0.00001), (220,0.000003), (240,0.000001)]
 
@@ -28,6 +29,9 @@ class BaseTrainer(object):
     def _set_model(self, opt):
         pass
 
+    def _set_loss(self):
+        pass
+
     def _set_optim(self, opt):
         self.old_lr = opt.lr
         self.lr_scheme = opt.lr_scheme
@@ -41,9 +45,6 @@ class BaseTrainer(object):
                 self.optimizers[lab] = torch.optim.SGD(itertools.chain(parameters), lr=opt.lr, momentum=opt.momentum, weight_decay=opt.weight_decay)
             else:
                 raise ValueError("Optim_method [%s] not recognized." % opt.optim_method)
-
-    def _set_loss(self):
-        pass
 
     def set_input(self, input):
         AtoB = self.opt.which_direction == 'AtoB'
