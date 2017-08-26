@@ -52,7 +52,7 @@ class ExperimentManager():
         for network_label in self.trainer.models.iterkeys():
             weights_fname = '%s_net_%s.pth' % (network_label, epoch_label)
             weights_fpath = os.path.join(self.ckpt_dir, weights_fname)
-            torch.save(self.trainer.models[network_label], weights_fpath)
+            torch.save(self.trainer.models[network_label].state_dict(), weights_fpath)
 
     def load_weights(self, epoch_label):
         for network_label in self.trainer.models.iterkeys():
