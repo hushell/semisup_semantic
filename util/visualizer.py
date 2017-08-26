@@ -22,7 +22,7 @@ class Visualizer():
             util.mkdirs([self.web_dir, self.img_dir])
 
         self.log_name = os.path.join(opt.checkpoints_dir, opt.name, 'loss_log.txt')
-        with open(self.log_name, "w") as log_file:
+        with open(self.log_name, "a") as log_file:
             now = time.strftime("%c")
             log_file.write('================ Training Loss (%s) ================\n' % now)
 
