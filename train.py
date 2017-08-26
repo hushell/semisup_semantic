@@ -80,6 +80,7 @@ for epoch in range(begin_epoch, opt.niter+opt.niter_decay+1):
         val_acc = expmgr.evaluation('val')
         metrics = {'train_acc': train_acc, 'val_acc': val_acc, 'epoch': epoch, 'lr': trainer.old_lr}
         expmgr.update_history(metrics)
+        expmgr.save_history()
 
     print(msg)
     with open(visualizer.log_name, "a") as log_file:
