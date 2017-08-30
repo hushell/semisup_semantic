@@ -1,7 +1,7 @@
 {
   "pascal":
   {
-    "data_path": "/home/hus/working/datasets/VOC2012_orig/"
+    "data_path": "./datasets/VOC2012_orig/"
   },
 
   "sbd":
@@ -11,7 +11,7 @@
 
   "camvid":
   {
-    "data_path": "/home/hus/working/datasets/CamVid/"
+    "data_path": "./datasets/CamVid/"
   },
   "ade20k":
   {

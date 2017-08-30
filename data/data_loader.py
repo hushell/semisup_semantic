@@ -23,6 +23,15 @@ class CustomDatasetDataLoader(object):
     def name(self):
         return 'CustomDatasetDataLoader'
 
+    def update_opt(self, opt):
+        if hasattr(self.dataset, 'n_classes'):
+            opt.output_nc = self.dataset.n_classes
+        if hasattr(self.dataset, 'heightSize'):
+            opt.heightSize = self.dataset.heightSize
+        if hasattr(self.dataset, 'widthSize'):
+            opt.widthSize = self.dataset.widthSize
+        return opt
+
 def CreateDataset(opt):
     dataset = None
     data_path = get_data_path(opt.dataset)
@@ -32,6 +41,9 @@ def CreateDataset(opt):
     elif opt.dataset == 'cityscapesAB':
         from .cityscapesAB_dataset import CityscapesABDataset
         dataset = CityscapesABDataset(data_path, opt)
+    elif opt.dataset == 'camvid':
+        from .camvid_dataset import CamvidDataset
+        dataset = CamvidDataset(data_path, opt)
     else:
         raise ValueError("Dataset [%s] not recognized." % opt.dataset)
 
