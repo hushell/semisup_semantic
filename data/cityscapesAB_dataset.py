@@ -74,9 +74,9 @@ class CityscapesABDataset(data.Dataset):
             trainId = int(label2trainId[labelId])
             if trainId2labelId[trainId] == -1:
                 trainId2labelId[trainId] = labelId
-        self.label2color = label2color[trainId2labelId]
+        self.label2color = label2color[trainId2labelId] # ndarray 20x3
         clsNames = np.asarray([label.name for label in cslabels.labels], dtype=np.str)
-        self.label2name = clsNames[trainId2labelId]
+        self.label2name = clsNames[trainId2labelId] # ndarray 20
 
 
     def __getitem__(self, index):

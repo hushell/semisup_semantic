@@ -27,6 +27,8 @@ train_loader = CreateDataLoader(opt)
 visualizer = Visualizer(opt)
 trainer = CreateTrainer(opt)
 
+opt = train_loader.update_opt(opt)
+
 ######################################
 # exp_manager
 expmgr = ExperimentManager(opt, trainer, visualizer, train_loader, val_loader)
