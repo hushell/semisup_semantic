@@ -24,10 +24,12 @@ val_loader = CreateDataLoader(opt)
 opt.phase = 'train'
 opt.isTrain = True
 train_loader = CreateDataLoader(opt)
+
+opt = train_loader.update_opt(opt)
+
 visualizer = Visualizer(opt)
 trainer = CreateTrainer(opt)
 
-opt = train_loader.update_opt(opt)
 
 ######################################
 # exp_manager
