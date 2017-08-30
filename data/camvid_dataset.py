@@ -15,31 +15,27 @@ class CamvidDataset(data.Dataset):
         self.split = opt.phase
         self.heightSize = 360
         self.widthSize = 480
-        self.n_classes = 13
+        self.n_classes = 12
         self.mean = np.array([104.00699, 116.66877, 122.67892])
         #self.files = collections.defaultdict(list)
         self.files = os.listdir(root + '/' + self.split)
 
-        Sky = [128, 128, 128]
-        Building = [128, 0, 0]
-        Pole = [192, 192, 128]
-        Road_marking = [255, 69, 0]
-        Road = [128, 64, 128]
-        Pavement = [60, 40, 222]
-        Tree = [128, 128, 0]
-        SignSymbol = [192, 128, 128]
-        Fence = [64, 64, 128]
-        Car = [64, 0, 128]
-        Pedestrian = [64, 64, 0]
-        Bicyclist = [0, 128, 192]
-        Unlabelled = [0, 0, 0]
+        self.label2color = np.array([(128, 128, 128),
+                                     (128, 0, 0),
+                                     (192, 192, 128),
+                                     (128, 64, 128),
+                                     (0, 0, 192),
+                                     (128, 128, 0),
+                                     (192, 128, 128),
+                                     (64, 64, 128),
+                                     (64, 0, 128),
+                                     (64, 64, 0),
+                                     (0, 128, 192),
+                                     (0, 0, 0)])
 
-        self.label2color = np.array([Sky, Building, Pole, Road_marking, Road,
-                                     Pavement, Tree, SignSymbol, Fence, Car,
-                                     Pedestrian, Bicyclist, Unlabelled])
-        self.label2name = np.array(['Sky', 'Building', 'Pole', 'Road_marking', 'Road',
-                                     'Pavement', 'Tree', 'SignSymbol', 'Fence', 'Car',
-                                     'Pedestrian', 'Bicyclist', 'Unlabelled'])
+        self.label2name = np.array(['Sky', 'Building', 'Column-Pole', 'Road',
+                                    'Sidewalk', 'Tree', 'Sign-Symbol', 'Fence', 'Car', 'Pedestrain',
+                                    'Bicyclist', 'Void'])
 
     def name(self):
         return 'CamvidDataset'
