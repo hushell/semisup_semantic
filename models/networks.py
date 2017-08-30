@@ -45,6 +45,9 @@ def define_G(input_nc, output_nc, ngf, which_model_netG, norm='batch', use_dropo
     elif which_model_netG == 'resnet50_fcn':
         from models.resnet50_fcn import ResNet50FCN
         netG = ResNet50FCN(output_nc, freeze_batch_norm=False, gpu_ids=gpu_ids)
+    elif which_model_netG == 'tiramisu_103':
+        from models.fc_densenet_tiramisu import FCDenseNet103
+        netG = FCDenseNet103(output_nc, gpu_ids=gpu_ids)
     else:
         print('Generator model name [%s] is not recognized' % which_model_netG)
 
