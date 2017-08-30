@@ -4,6 +4,8 @@ import itertools
 from torch.autograd import Variable
 
 LUT = [(40,0.0001), (100,0.00003), (160,0.00001), (220,0.000003), (240,0.000001)]
+LR_DECAY = 0.995 # Applied each epoch "exponential decay"
+DECAY_LR_EVERY_N_EPOCHS = 1
 
 class BaseTrainer(object):
     def name(self):
@@ -43,6 +45,8 @@ class BaseTrainer(object):
                 self.optimizers[lab] = torch.optim.Adam(itertools.chain(parameters), lr=opt.lr, betas=(opt.beta1, 0.999))
             elif opt.optim_method == 'sgd':
                 self.optimizers[lab] = torch.optim.SGD(itertools.chain(parameters), lr=opt.lr, momentum=opt.momentum, weight_decay=opt.weight_decay)
+            elif opt.optim_method == 'rmsprop':
+                self.optimizers[lab] = torch.optim.RMSprop(itertools.chain(parameters), lr=opt.lr, weight_decay=opt.weight_decay)
             else:
                 raise ValueError("Optim_method [%s] not recognized." % opt.optim_method)
 
@@ -84,6 +88,8 @@ class BaseTrainer(object):
                 lr = self.opt.lr
         elif self.lr_scheme == 'lut':
             lr = next((lr for (max_epoch, lr) in LUT if max_epoch>epoch), LUT[-1][1])
+        elif self.lr_scheme == 'exp':
+            lr = self.opt.lr * (LR_DECAY ** (epoch // DECAY_LR_EVERY_N_EPOCHS))
         else:
             raise ValueError("lr scheme [%s] not recognized." % opt.lr_scheme)
 
