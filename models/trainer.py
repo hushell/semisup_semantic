@@ -15,7 +15,7 @@ class BaseTrainer(object):
         self.opt = opt
         self.gpu_ids = opt.gpu_ids
         self.isTrain = opt.isTrain
-        #self.Tensor = torch.cuda.FloatTensor if self.gpu_ids else torch.Tensor
+        self.Tensor = torch.cuda.FloatTensor if self.gpu_ids else torch.Tensor
         if self.gpu_ids:
             self.input_A = torch.cuda.FloatTensor(opt.batchSize, opt.input_nc, opt.heightSize, opt.widthSize)
             self.input_B = torch.cuda.LongTensor(opt.batchSize, opt.output_nc, opt.heightSize, opt.widthSize)
@@ -27,14 +27,21 @@ class BaseTrainer(object):
         self.optimizers = dict()
         self.lossfuncs = dict()
         self.losses = dict()
+        self.fake_pool = dict()
 
     def _set_model(self, opt):
+        ''' G_A (mandatory), D_A, G_B, D_B
+        '''
         pass
 
     def _set_loss(self):
+        ''' CE_A, GAN_A, MSE_B, GAN_B
+        '''
         pass
 
     def _set_optim(self, opt):
+        ''' Each network has its own optimizer (currently all the same type)
+        '''
         self.old_lr = opt.lr
         self.lr_scheme = opt.lr_scheme
 
@@ -49,6 +56,9 @@ class BaseTrainer(object):
                 self.optimizers[lab] = torch.optim.RMSprop(itertools.chain(parameters), lr=opt.lr, weight_decay=opt.weight_decay)
             else:
                 raise ValueError("Optim_method [%s] not recognized." % opt.optim_method)
+
+    def _set_fake_pool(self):
+        pass
 
     def set_input(self, input):
         AtoB = self.opt.which_direction == 'AtoB'
@@ -70,14 +80,20 @@ class BaseTrainer(object):
     def forward(self):
         pass
 
+    def backward(self):
+        pass
+
+    def optimize_parameters(self):
+        # forward
+        self.forward()
+        # backward
+        self.backward()
+
     # used in test time, no backprop
     def test(self):
         self.real_A = Variable(self.input_A, volatile=True)
         self.real_B = Variable(self.input_B, volatile=True)
         self.fake_B = self.models['G_A'].forward(self.real_A)
-
-    def optimize_parameters(self):
-        pass
 
     def update_learning_rate(self, epoch):
         if self.lr_scheme == 'linear':
@@ -117,6 +133,9 @@ def CreateTrainer(opt):
     if opt.loss == 'cross_ent':
         from .cross_entropy_trainer import CrossEntropyTrainer
         trainer = CrossEntropyTrainer(opt)
+    if opt.loss == 'gan_ce':
+        from .gan_ce_trainer import GANCrossEntTrainer
+        trainer = GANCrossEntTrainer(opt)
     else:
         raise ValueError("trainer [%s] not recognized." % opt.loss)
     #trainer.initialize(opt)
