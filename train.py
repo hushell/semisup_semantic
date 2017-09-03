@@ -77,8 +77,9 @@ for epoch in range(begin_epoch, opt.niter+opt.niter_decay+1):
 
     if epoch % opt.save_epoch_freq == 0:
         msg += '===> Saving the model at the end of epoch %d, total_iters %d\n' % (epoch, total_steps)
-        expmgr.save_weights(epoch)
-        expmgr.save_optimizer(epoch)
+        if not opt.no_save:
+            expmgr.save_weights(epoch)
+            expmgr.save_optimizer(epoch)
 
         train_acc = expmgr.evaluation('train')
         val_acc = expmgr.evaluation('val')
