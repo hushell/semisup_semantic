@@ -25,12 +25,12 @@ class CrossEntropyTrainer(BaseTrainer):
 
     def _set_model(self, opt):
         self.models['G_A'] = networks.define_G(opt.input_nc, opt.output_nc, opt.ngf, opt.which_model_netG,
-                                                  opt.norm, opt.use_dropout, self.gpu_ids)
+                                               opt.norm, opt.use_dropout, self.gpu_ids, 'softmax') # G_A(A)
 
     def _set_loss(self):
-        self.lossfuncs['CE_A'] = torch.nn.NLLLoss2d()
+        self.lossfuncs['CE'] = torch.nn.NLLLoss2d()
         if len(self.gpu_ids) > 0:
-            self.lossfuncs['CE_A'] = self.lossfuncs['CE_A'].cuda(self.gpu_ids[0])
+            self.lossfuncs['CE'] = self.lossfuncs['CE'].cuda(self.gpu_ids[0])
 
     def forward(self):
         self.real_A = Variable(self.input_A)
@@ -39,7 +39,7 @@ class CrossEntropyTrainer(BaseTrainer):
 
     def backward(self):
         self.optimizers['G_A'].zero_grad()
-        self.losses['G_A'] = self.lossfuncs['CE_A'](self.fake_B, self.real_B)
+        self.losses['G_A'] = self.lossfuncs['CE'](self.fake_B, self.real_B)
         self.losses['G_A'].backward()
         self.optimizers['G_A'].step()
 
