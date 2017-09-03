@@ -1,16 +1,42 @@
 import torch.utils.data
+from torch.utils.data.sampler import Sampler, RandomSampler
+import numpy as np
 
 def CreateDataLoader(opt):
     data_loader = CustomDatasetDataLoader(opt)
     return data_loader
 
+class SemiSupRandomSampler(Sampler):
+    def __init__(self, unsup, batchSize):
+        self.unsup = unsup # int ndarray only {0,1}
+        self.batchSize = batchSize
+
+    def __iter__(self):
+        unsup_indices = np.random.permutation( np.where(self.unsup)[0] ) # indices from bool
+        sup_indices = np.random.permutation( np.where(1 - self.unsup)[0] )
+
+        self.len_unsup = len(unsup_indices) - len(unsup_indices) % self.batchSize # mod by batchSize
+        self.len_sup = len(sup_indices) - len(sup_indices) % self.batchSize
+        unsup_indices = unsup_indices[0:self.len_unsup].reshape((-1,self.batchSize))
+        sup_indices = sup_indices[0:self.len_sup].reshape((-1,self.batchSize))
+
+        indices = np.vstack((unsup_indices, sup_indices))
+        np.random.shuffle(indices) # in place shuffle along axis-0
+        return iter(indices.ravel().astype(np.int32))
+
+    def __len__(self):
+        return self.len_sup + self.len_unsup
+
 class CustomDatasetDataLoader(object):
     def __init__(self, opt):
         self.dataset = CreateDataset(opt)
+        my_sampler = SemiSupRandomSampler(self.dataset.unsup, opt.batchSize) \
+                        if opt.unsup_portion > 0 else RandomSampler
         self.dataloader = torch.utils.data.DataLoader(
             self.dataset,
             batch_size=opt.batchSize,
-            shuffle=True,
+            #shuffle=True,
+            sampler = my_sampler,
             num_workers=int(opt.nThreads),
             drop_last=True)
 

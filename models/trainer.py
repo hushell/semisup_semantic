@@ -73,7 +73,10 @@ class BaseTrainer(object):
         #    self.input_A = input_A
         #    self.input_B = input_B.long()
         self.image_paths = input['A_paths' if AtoB else 'B_paths']
-        self.use_real_B = not input['unsup']
+
+        unsup = input['unsup']
+        assert(unsup.min() == unsup.max())
+        self.use_real_B = not bool(unsup[0])
 
     def get_image_paths(self):
         return self.image_paths
@@ -142,6 +145,9 @@ def CreateTrainer(opt):
     elif opt.loss == 'gan_ce':
         from .gan_ce_trainer import GANCrossEntTrainer
         trainer = GANCrossEntTrainer(opt)
+    elif opt.loss == 'cycle_gan_ce':
+        from .cyclegan_ce_trainer import CycleGANCrossEntTrainer
+        trainer = CycleGANCrossEntTrainer(opt)
     else:
         raise ValueError("trainer [%s] not recognized." % opt.loss)
     #trainer.initialize(opt)
