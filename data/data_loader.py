@@ -31,7 +31,7 @@ class CustomDatasetDataLoader(object):
     def __init__(self, opt):
         self.dataset = CreateDataset(opt)
         my_sampler = SemiSupRandomSampler(self.dataset.unsup, opt.batchSize) \
-                        if opt.unsup_portion > 0 else RandomSampler
+                        if opt.unsup_portion > 0 else RandomSampler(self.dataset)
         self.dataloader = torch.utils.data.DataLoader(
             self.dataset,
             batch_size=opt.batchSize,
