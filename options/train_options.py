@@ -25,4 +25,5 @@ class TrainOptions(BaseOptions):
         self.parser.add_argument('--save_epoch_freq', type=int, default=5, help='frequency of saving checkpoints at the end of epochs')
         self.parser.add_argument('--gt_noise', action='store_true', help='use scaled gt')
         self.parser.add_argument('--no_save', action='store_true', help='do not save states')
+        self.parser.add_argument('--unsup_portion', type=int, default=0, help='portion of unsupervised, range=0,...,10')
         self.isTrain = True
