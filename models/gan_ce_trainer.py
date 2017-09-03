@@ -25,23 +25,23 @@ class GANCrossEntTrainer(BaseTrainer):
             print('------------ Networks initialized -------------')
             networks.print_network(self.models['G_A'])
             print('-----------------------------------------------')
-            networks.print_network(self.models['D_A'])
+            networks.print_network(self.models['D_B'])
 
     def _set_model(self, opt):
         self.models['G_A'] = networks.define_G(opt.input_nc, opt.output_nc, opt.ngf, opt.which_model_netG,
-                                               opt.norm, opt.use_dropout, self.gpu_ids)
+                                               opt.norm, opt.use_dropout, self.gpu_ids, 'softmax') # G_A(A)
         if self.isTrain:
             use_sigmoid = opt.no_lsgan
-            self.models['D_A'] = networks.define_D(opt.output_nc, opt.ndf, # D_A(y)
+            self.models['D_B'] = networks.define_D(opt.output_nc, opt.ndf, # D_B(B)
                                                    opt.which_model_netD,
                                                    opt.n_layers_D, opt.norm, use_sigmoid, self.gpu_ids)
 
     def _set_loss(self):
-        self.lossfuncs['CE_A'] = torch.nn.NLLLoss2d()
-        self.lossfuncs['GAN_A'] = networks.GANLoss(use_lsgan=not self.opt.no_lsgan, tensor=self.Tensor)
+        self.lossfuncs['CE'] = torch.nn.NLLLoss2d()
+        self.lossfuncs['GAN_B'] = networks.GANLoss(use_lsgan=not self.opt.no_lsgan, tensor=self.Tensor) # GAN on B
         if len(self.gpu_ids) > 0:
-            self.lossfuncs['CE_A'] = self.lossfuncs['CE_A'].cuda(self.gpu_ids[0])
-            self.lossfuncs['GAN_A'] = self.lossfuncs['GAN_A'].cuda(self.gpu_ids[0])
+            self.lossfuncs['CE'] = self.lossfuncs['CE'].cuda(self.gpu_ids[0])
+            self.lossfuncs['GAN_B'] = self.lossfuncs['GAN_B'].cuda(self.gpu_ids[0])
 
     def _set_fake_pool(self):
         self.fake_pool['B'] = ImagePool(self.opt.pool_size)
@@ -66,11 +66,42 @@ class GANCrossEntTrainer(BaseTrainer):
         loss_D = (loss_D_real + loss_D_fake) * 0.5
         return loss_D
 
-    def backward_D_A(self):
+    def backward_D_B(self):
         # self.fake_B = G_A(A), fake_B is self.fake_B with random replacements from fake_B_pool
         fake_B = self.fake_pool['B'].query(self.fake_B)
 
-        # one-hot GT (or + noise), dtype=Float
+        # one-hot real_B (or + noise), dtype=Float
+        self.compute_real_B_onehot(fake_B)
+
+        # D_B(B)
+        self.losses['D_B'] = self.backward_D_basic(self.models['D_B'], self.lossfuncs['GAN_B'],
+                                                   self.real_B_onehot, fake_B)
+        self.losses['D_B'].backward()
+
+    def backward_G_A(self):
+        # cross_ent(G_A(A), B)
+        self.losses['G_A-CE'] = self.lossfuncs['CE'](self.fake_B, self.real_B)
+
+        # suppose: min_G 1/2 log(1 - D(fake))
+        # non-saturating: max_G 1/2 log(D(fake)), fake = G_A(A)
+        pred_fake = self.models['D_B'].forward(self.fake_B) # back-prop will flow fake_B = G_A(A)
+        self.losses['G_A-GAN'] = self.lossfuncs['GAN_B'](pred_fake, True) * 0.5
+
+        self.losses['G_A'] = self.losses['G_A-CE']*self.opt.lambda_A + self.losses['G_A-GAN']
+        self.losses['G_A'].backward()
+
+    def backward(self):
+        # G_A
+        self.optimizers['G_A'].zero_grad()
+        self.backward_G_A()
+        self.optimizers['G_A'].step()
+
+        # D_B
+        self.optimizers['D_B'].zero_grad()
+        self.backward_D_B()
+        self.optimizers['D_B'].step()
+
+    def compute_real_B_onehot(self, fake_B):
         if not self.opt.gt_noise:
             #real_B_onehot = np.eye(opt.output_nc)[real_B_int]
             real_B_int = self.input_B.unsqueeze(dim=1)
@@ -98,35 +129,7 @@ class GANCrossEntTrainer(BaseTrainer):
             real_B_onehot = torch.from_numpy(real_B_onehot)
             if len(self.gpu_ids) > 0:
                 real_B_onehot = real_B_onehot.cuda(self.gpu_ids[0])
-        real_B_onehot = Variable(real_B_onehot)
-
-        # backward
-        self.losses['D_A'] = self.backward_D_basic(self.models['D_A'], self.lossfuncs['GAN_A'],
-                                                   real_B_onehot, fake_B)
-        self.losses['D_A'].backward()
-
-    def backward_G_A(self):
-        # cross_ent(G_A(A), B)
-        self.losses['G_A_CE'] = self.lossfuncs['CE_A'](self.fake_B, self.real_B)
-
-        # suppose: min_G 1/2 log(1 - D(fake))
-        # non-saturating: max_G 1/2 log(D(fake)), fake = G_A(A)
-        pred_fake = self.models['D_A'].forward(self.fake_B) # back-prop will flow fake_B = G_A(A)
-        self.losses['G_A_GAN'] = self.lossfuncs['GAN_A'](pred_fake, True) * 0.5
-
-        self.losses['G_A'] = self.losses['G_A_CE']*self.opt.lambda_A + self.losses['G_A_GAN']
-        self.losses['G_A'].backward()
-
-    def backward(self):
-        # G_A
-        self.optimizers['G_A'].zero_grad()
-        self.backward_G_A()
-        self.optimizers['G_A'].step()
-
-        # D_A
-        self.optimizers['D_A'].zero_grad()
-        self.backward_D_A()
-        self.optimizers['D_A'].step()
+        self.real_B_onehot = Variable(real_B_onehot)
 
     def get_current_losses(self):
         return { key:val.data[0] for key,val in self.losses.iteritems() }
