@@ -133,7 +133,7 @@ def CreateTrainer(opt):
     if opt.loss == 'cross_ent':
         from .cross_entropy_trainer import CrossEntropyTrainer
         trainer = CrossEntropyTrainer(opt)
-    if opt.loss == 'gan_ce':
+    elif opt.loss == 'gan_ce':
         from .gan_ce_trainer import GANCrossEntTrainer
         trainer = GANCrossEntTrainer(opt)
     else:
