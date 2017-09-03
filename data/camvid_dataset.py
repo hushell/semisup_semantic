@@ -22,7 +22,7 @@ class CamvidDataset(data.Dataset):
         self.std = [0.27413549931506, 0.28506257482912, 0.28284674400252]
         self.files = os.listdir(root + '/' + self.split)
         self.unsup = np.zeros(len(self.files), dtype=np.int32)
-        if opt.isTrain:
+        if opt.isTrain and opt.unsup_portion > 0:
             tmp = np.concatenate([np.arange(i,len(self.files),10) for i in range(opt.unsup_portion)])
             self.unsup[tmp] = 1
 
