@@ -11,8 +11,9 @@ opt = TrainOptions().parse()
 
 os.environ['CUDA_VISIBLE_DEVICES'] = opt.gpu_ids # absolute ids
 # to prevent opencv from initializing CUDA in workers
-torch.randn(8).cuda()
-os.environ['CUDA_VISIBLE_DEVICES'] = ''
+if len(opt.gpu_ids) > 0:
+    torch.randn(8).cuda()
+    os.environ['CUDA_VISIBLE_DEVICES'] = ''
 
 opt.gpu_ids = range(0,len(opt.gpu_ids)) # new range starting from 0
 

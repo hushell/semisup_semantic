@@ -8,7 +8,8 @@ import numpy as np
 # Code and idea originally from Justin Johnson's architecture.
 # https://github.com/jcjohnson/fast-neural-style/
 class StyleTransformResNet(nn.Module):
-    def __init__(self, input_nc, output_nc, ngf=64, norm_layer=nn.BatchNorm2d, use_dropout=False, n_blocks=6, gpu_ids=[]):
+    def __init__(self, input_nc, output_nc, ngf=64, norm_layer=nn.BatchNorm2d, use_dropout=False, n_blocks=6,
+                 gpu_ids=[], last_layer='softmax'):
         assert(n_blocks >= 0)
         super(StyleTransformResNet, self).__init__()
         self.input_nc = input_nc
@@ -41,8 +42,13 @@ class StyleTransformResNet(nn.Module):
                       nn.ReLU(True)]
 
         model += [nn.Conv2d(ngf, output_nc, kernel_size=7, padding=3)]
-        #model += [nn.Tanh()]
-        model += [nn.LogSoftmax()]
+
+        if last_layer == 'softmax':
+            model += [nn.LogSoftmax()]
+        elif last_layer == 'tanh':
+            model += [nn.Tanh()]
+        else:
+            print('Layer name [%s] is not recognized' % last_layer)
 
         self.model = nn.Sequential(*model)
 

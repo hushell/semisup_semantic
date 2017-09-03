@@ -18,6 +18,7 @@ class CycleGANCrossEntTrainer(BaseTrainer):
         self._set_model(opt)
 
         if self.isTrain:
+            self.train(mode=True) # dropout turns out
             self._set_loss()
             self._set_optim(opt)
             self._set_fake_pool()
@@ -30,12 +31,12 @@ class CycleGANCrossEntTrainer(BaseTrainer):
 
     def _set_model(self, opt):
         self.models['G_A'] = networks.define_G(opt.input_nc, opt.output_nc, opt.ngf, opt.which_model_netG,
-                                               opt.norm, opt.use_dropout, self.gpu_ids) # G_A(A)
+                                               opt.norm, opt.use_dropout, self.gpu_ids, 'softmax') # G_A(A)
         if self.isTrain:
             use_sigmoid = opt.no_lsgan
             # TODO: G_B outputs an intermediate representation rather than down to A, e.g., bottleneck of G_A
             self.models['G_B'] = networks.define_G(opt.output_nc, opt.input_nc, opt.ngf, opt.which_model_netG,
-                                                   opt.norm, opt.use_dropout, self.gpu_ids) # G_B(B)
+                                                   opt.norm, opt.use_dropout, self.gpu_ids, 'tanh') # G_B(B)
             self.models['D_B'] = networks.define_D(opt.output_nc, opt.ndf, # D_B(B)
                                                    opt.which_model_netD,
                                                    opt.n_layers_D, opt.norm, use_sigmoid, self.gpu_ids)
@@ -84,7 +85,7 @@ class CycleGANCrossEntTrainer(BaseTrainer):
         fake_B = self.fake_pool['B'].query(self.fake_B)
 
         # one-hot real_B (or + noise), dtype=Float
-        compute_real_B_onehot(fake_B)
+        self.compute_real_B_onehot(fake_B)
 
         # D_B(B)
         self.losses['D_B'] = self.backward_D_basic(self.models['D_B'], self.lossfuncs['GAN_B'],
@@ -105,7 +106,7 @@ class CycleGANCrossEntTrainer(BaseTrainer):
 
         # GAN( G_B(G_A(A)), fake )
         pred_rec = self.models['D_A'].forward(self.rec_A)
-        self.losses['G_A-G_B-GAN'] = self.lossfuncs['GAN_A'](prec_rec, True) * 0.5
+        self.losses['G_A-G_B-GAN'] = self.lossfuncs['GAN_A'](pred_rec, True) * 0.5
 
         # reconstruction loss for A
         self.losses['G_AB'] = self.losses['G_A-G_B-L1']*self.opt.lambda_A + self.losses['G_A-G_B-GAN']

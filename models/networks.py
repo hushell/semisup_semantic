@@ -25,7 +25,8 @@ def get_norm_layer(norm_type):
     return norm_layer
 
 
-def define_G(input_nc, output_nc, ngf, which_model_netG, norm='batch', use_dropout=False, gpu_ids=[]):
+def define_G(input_nc, output_nc, ngf, which_model_netG, norm='batch', use_dropout=False,
+             gpu_ids=[], last_layer='softmax'):
     netG = None
     use_gpu = len(gpu_ids) > 0
     norm_layer = get_norm_layer(norm_type=norm)
@@ -35,16 +36,17 @@ def define_G(input_nc, output_nc, ngf, which_model_netG, norm='batch', use_dropo
 
     if which_model_netG == 'st_resnet_9blocks' or which_model_netG == 'resnet_softmax_9blocks':
         from models.style_transform_resnet import StyleTransformResNet
-        netG = StyleTransformResNet(input_nc, output_nc, ngf, norm_layer=norm_layer, use_dropout=use_dropout, n_blocks=9, gpu_ids=gpu_ids)
-    elif which_model_netG == 'unet_128':
-        from models.u_net import UnetGenerator
-        netG = UnetGenerator(input_nc, output_nc, 7, ngf, norm_layer=norm_layer, use_dropout=use_dropout, gpu_ids=gpu_ids)
-    elif which_model_netG == 'unet_256':
-        from models.u_net import UnetGenerator
-        netG = UnetGenerator(input_nc, output_nc, 8, ngf, norm_layer=norm_layer, use_dropout=use_dropout, gpu_ids=gpu_ids)
-    elif which_model_netG == 'resnet50_fcn':
-        from models.resnet50_fcn import ResNet50FCN
-        netG = ResNet50FCN(output_nc, freeze_batch_norm=False, gpu_ids=gpu_ids)
+        netG = StyleTransformResNet(input_nc, output_nc, ngf, norm_layer=norm_layer, use_dropout=use_dropout, n_blocks=9,
+                                    gpu_ids=gpu_ids, last_layer=last_layer)
+    #elif which_model_netG == 'unet_128':
+    #    from models.u_net import UnetGenerator
+    #    netG = UnetGenerator(input_nc, output_nc, 7, ngf, norm_layer=norm_layer, use_dropout=use_dropout, gpu_ids=gpu_ids)
+    #elif which_model_netG == 'unet_256':
+    #    from models.u_net import UnetGenerator
+    #    netG = UnetGenerator(input_nc, output_nc, 8, ngf, norm_layer=norm_layer, use_dropout=use_dropout, gpu_ids=gpu_ids)
+    #elif which_model_netG == 'resnet50_fcn':
+    #    from models.resnet50_fcn import ResNet50FCN
+    #    netG = ResNet50FCN(output_nc, freeze_batch_norm=False, gpu_ids=gpu_ids)
     elif which_model_netG == 'tiramisu_103':
         from models.fc_densenet_tiramisu import FCDenseNet103
         netG = FCDenseNet103(output_nc, gpu_ids=gpu_ids)

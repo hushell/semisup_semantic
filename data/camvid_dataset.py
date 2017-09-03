@@ -21,9 +21,10 @@ class CamvidDataset(data.Dataset):
         self.mean = [0.41189489566336, 0.4251328133025, 0.4326707089857]
         self.std = [0.27413549931506, 0.28506257482912, 0.28284674400252]
         self.files = os.listdir(root + '/' + self.split)
-        tmp = np.concatenate([np.arange(i,len(self.files),10) for i in range(opt.unsup_portion)])
-        self.unsup = np.zeros(len(self.files), dtype=bool)
-        self.unsup[tmp] = True
+        self.unsup = np.zeros(len(self.files), dtype=np.int32)
+        if opt.isTrain:
+            tmp = np.concatenate([np.arange(i,len(self.files),10) for i in range(opt.unsup_portion)])
+            self.unsup[tmp] = 1
 
         # transforms
         transform_list = []
