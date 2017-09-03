@@ -57,7 +57,8 @@ class BaseOptions():
             self.initialize()
         self.opt = self.parser.parse_args()
         self.opt.isTrain = self.isTrain   # train or test
-        self.opt.name += '_b%d' % self.opt.batchSize
+        self.opt.name += '_%s_%s_%s_netD%d_b%d' % (self.opt.dataset, self.opt.loss, self.opt.which_model_netG, \
+                                                   self.opt.n_layers_D, self.opt.batchSize)
         self.opt.nThreads = max(self.opt.batchSize / 2, self.opt.nThreads)
 
         args = vars(self.opt)
