@@ -16,6 +16,7 @@ class CrossEntropyTrainer(BaseTrainer):
         self._set_model(opt)
 
         if self.isTrain:
+            self.train(mode=True) # dropout turns out
             self._set_loss()
             self._set_optim(opt)
             print('------------ Networks initialized -------------')

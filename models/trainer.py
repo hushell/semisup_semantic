@@ -128,6 +128,11 @@ class BaseTrainer(object):
     def get_current_visuals(self):
         pass
 
+    def train(self, mode=True):
+        for lab in self.models.keys():
+            if 'G' in lab:
+                self.models[lab].train(mode=mode)
+
 def CreateTrainer(opt):
     trainer = None
     if opt.loss == 'cross_ent':

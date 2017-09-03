@@ -18,6 +18,7 @@ class GANCrossEntTrainer(BaseTrainer):
         self._set_model(opt)
 
         if self.isTrain:
+            self.train(mode=True) # dropout turns out
             self._set_loss()
             self._set_optim(opt)
             self._set_fake_pool()
