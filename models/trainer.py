@@ -73,6 +73,7 @@ class BaseTrainer(object):
         #    self.input_A = input_A
         #    self.input_B = input_B.long()
         self.image_paths = input['A_paths' if AtoB else 'B_paths']
+        self.use_real_B = not input['unsup']
 
     def get_image_paths(self):
         return self.image_paths
