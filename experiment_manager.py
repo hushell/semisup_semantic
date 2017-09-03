@@ -91,6 +91,8 @@ class ExperimentManager():
         self.visualizer.plot_current_metrics(losses, total_i)
 
     def evaluation(self, phase='train'):
+        self.trainer.train(mode=False)
+
         eval_stats = SegmentationMeter(n_class=self.opt.output_nc)
         start_time = time.time()
         for data in self.data_loader[phase]:
@@ -109,4 +111,5 @@ class ExperimentManager():
         with open(self.visualizer.log_name, "a") as log_file:
             log_file.write('%s' % msg)
 
+        self.trainer.train(mode=True)
         return eval_results[0]['Mean IoU']
