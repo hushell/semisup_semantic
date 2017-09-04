@@ -35,7 +35,7 @@ def define_G(input_nc, output_nc, ngf, which_model_netG, norm='batch', use_dropo
         assert(torch.cuda.is_available())
 
     if which_model_netG == 'st_resnet_9blocks' or which_model_netG == 'resnet_softmax_9blocks':
-        from models.style_transform_resnet import StyleTransformResNet
+        from .style_transform_resnet import StyleTransformResNet
         netG = StyleTransformResNet(input_nc, output_nc, ngf, norm_layer=norm_layer, use_dropout=use_dropout, n_blocks=9,
                                     gpu_ids=gpu_ids, last_layer=last_layer)
     #elif which_model_netG == 'unet_128':
@@ -48,7 +48,7 @@ def define_G(input_nc, output_nc, ngf, which_model_netG, norm='batch', use_dropo
     #    from models.resnet50_fcn import ResNet50FCN
     #    netG = ResNet50FCN(output_nc, freeze_batch_norm=False, gpu_ids=gpu_ids)
     elif which_model_netG == 'tiramisu_103':
-        from models.fc_densenet_tiramisu import FCDenseNet103
+        from .fc_densenet_tiramisu import FCDenseNet103
         netG = FCDenseNet103(output_nc, gpu_ids=gpu_ids)
     else:
         print('Generator model name [%s] is not recognized' % which_model_netG)
