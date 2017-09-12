@@ -82,7 +82,7 @@ class Visualizer():
     def print_current_metrics(self, epoch, total_i, t, metrics):
         message = '(epoch: %d, iters: %d, time: %.3f) ' % (epoch, total_i, t)
         for k, v in metrics.items():
-            dformat = '%.e' if v < 1e-3 else '%.3f'
+            dformat = '%.e' if abs(v) < 1e-3 else '%.3f'
             message += '%s: {} '.format(dformat) % (k, v)
 
         print(message)

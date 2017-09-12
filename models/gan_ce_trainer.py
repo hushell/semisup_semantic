@@ -49,7 +49,7 @@ class GANCrossEntTrainer(BaseTrainer):
     def forward(self):
         self.real_A = Variable(self.input_A)
         self.real_B = Variable(self.input_B)
-        self.fake_B = self.models['G_A'].forward(self.real_A)
+        #self.fake_B = self.models['G_A'].forward(self.real_A)
 
     def backward_D_basic(self, netD, gan_loss, real, fake):
         ''' gan_loss: instance of GANLoss
@@ -68,17 +68,20 @@ class GANCrossEntTrainer(BaseTrainer):
 
     def backward_D_B(self):
         # self.fake_B = G_A(A), fake_B is self.fake_B with random replacements from fake_B_pool
-        fake_B = self.fake_pool['B'].query(self.fake_B)
+        #fake_B = self.fake_pool['B'].query(self.fake_B)
+        self.fake_B = self.models['G_A'].forward(self.real_A) # since G_A has updated
 
         # one-hot real_B (or + noise), dtype=Float
-        self.compute_real_B_onehot(fake_B)
+        self.compute_real_B_onehot(self.fake_B)
 
         # D_B(B)
         self.losses['D_B'] = self.backward_D_basic(self.models['D_B'], self.lossfuncs['GAN_B'],
-                                                   self.real_B_onehot, fake_B)
+                                                   self.real_B_onehot, self.fake_B)
         self.losses['D_B'].backward()
 
     def backward_G_A(self):
+        self.fake_B = self.models['G_A'].forward(self.real_A)
+
         # cross_ent(G_A(A), B)
         self.losses['G_A-CE'] = self.lossfuncs['CE'](self.fake_B, self.real_B)
 
@@ -127,8 +130,8 @@ class GANCrossEntTrainer(BaseTrainer):
             real_B_onehot = fake_B_cpy * coeff
             real_B_onehot[nn,real_B_int,hh,ww] = Y
             real_B_onehot = torch.from_numpy(real_B_onehot)
-            if len(self.gpu_ids) > 0:
-                real_B_onehot = real_B_onehot.cuda(self.gpu_ids[0])
+        if len(self.gpu_ids) > 0:
+            real_B_onehot = real_B_onehot.cuda(self.gpu_ids[0])
         self.real_B_onehot = Variable(real_B_onehot)
 
     def get_current_losses(self):

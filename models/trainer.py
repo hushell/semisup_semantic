@@ -18,7 +18,7 @@ class BaseTrainer(object):
         self.Tensor = torch.cuda.FloatTensor if self.gpu_ids else torch.Tensor
         if self.gpu_ids:
             self.input_A = torch.cuda.FloatTensor(opt.batchSize, opt.input_nc, opt.heightSize, opt.widthSize)
-            self.input_B = torch.cuda.LongTensor(opt.batchSize, opt.output_nc, opt.heightSize, opt.widthSize)
+            self.input_B = torch.cuda.LongTensor(opt.batchSize, opt.output_nc, opt.heightSize, opt.widthSize) # TODO: dim_1 = 1
         else:
             self.input_A = torch.FloatTensor(opt.batchSize, opt.input_nc, opt.heightSize, opt.widthSize)
             self.input_B = torch.LongTensor(opt.batchSize, opt.output_nc, opt.heightSize, opt.widthSize)
@@ -39,21 +39,25 @@ class BaseTrainer(object):
         '''
         pass
 
-    def _set_optim(self, opt):
+    def _set_optim(self, opt, lr_coeffs=None):
         ''' Each network has its own optimizer (currently all the same type)
         '''
         self.old_lr = opt.lr
         self.lr_scheme = opt.lr_scheme
+        self.lr_coeffs = lr_coeffs if lr_coeffs is not None else {k:1.0 for k in self.models.keys()}
 
         for lab, net in self.models.items():
             #parameters = filter(lambda p: p.requires_grad, self.netG_A.parameters())
             parameters = [p for p in net.parameters() if p.requires_grad]
             if opt.optim_method == 'adam':
-                self.optimizers[lab] = torch.optim.Adam(itertools.chain(parameters), lr=opt.lr, betas=(opt.beta1, 0.999))
+                self.optimizers[lab] = torch.optim.Adam(itertools.chain(parameters),
+                                                        lr=opt.lr*self.lr_coeffs[lab], betas=(opt.beta1, 0.999))
             elif opt.optim_method == 'sgd':
-                self.optimizers[lab] = torch.optim.SGD(itertools.chain(parameters), lr=opt.lr, momentum=opt.momentum, weight_decay=opt.weight_decay)
+                self.optimizers[lab] = torch.optim.SGD(itertools.chain(parameters),
+                                                       lr=opt.lr*self.lr_coeffs[lab], momentum=opt.momentum, weight_decay=opt.weight_decay)
             elif opt.optim_method == 'rmsprop':
-                self.optimizers[lab] = torch.optim.RMSprop(itertools.chain(parameters), lr=opt.lr, weight_decay=opt.weight_decay)
+                self.optimizers[lab] = torch.optim.RMSprop(itertools.chain(parameters),
+                                                           lr=opt.lr*self.lr_coeffs[lab], weight_decay=opt.weight_decay)
             else:
                 raise ValueError("Optim_method [%s] not recognized." % opt.optim_method)
 
@@ -65,7 +69,7 @@ class BaseTrainer(object):
         input_A = input['A' if AtoB else 'B']
         input_B = input['B' if AtoB else 'A']
         self.input_A.resize_(input_A.size()).copy_(input_A)
-        self.input_B.resize_(input_B.size()).copy_(input_B.long())
+        self.input_B.resize_(input_B.size()).copy_(input_B.long()) # TODO: resize_ unnecessary
         #if len(self.gpu_ids) > 0:
         #    self.input_A = input_A.cuda(self.gpu_ids[0])
         #    self.input_B = input_B.long().cuda(self.gpu_ids[0])
@@ -115,8 +119,8 @@ class BaseTrainer(object):
 
         for lab, optim in self.optimizers.items():
             for param_group in optim.param_groups:
-                param_group['lr'] = lr
-            print('===> learning rate of %s: %f -> %f' % (lab, self.old_lr, lr))
+                param_group['lr'] = lr * self.lr_coeffs[lab]
+            print('===> learning rate of %s: %.10f -> %.10f' % (lab, self.old_lr*self.lr_coeffs[lab], lr*self.lr_coeffs[lab]))
 
         self.old_lr = lr
 
@@ -148,6 +152,12 @@ def CreateTrainer(opt):
     elif opt.loss == 'cycle_gan_ce':
         from .cyclegan_ce_trainer import CycleGANCrossEntTrainer
         trainer = CycleGANCrossEntTrainer(opt)
+    elif opt.loss == 'asp':
+        from .amortized_struct_percep_trainer import AmortStructPercepTrainer
+        trainer = AmortStructPercepTrainer(opt)
+    elif opt.loss == 'assvm':
+        from .amortized_struct_svm_trainer import AmortStructSVMTrainer
+        trainer = AmortStructSVMTrainer(opt)
     else:
         raise ValueError("trainer [%s] not recognized." % opt.loss)
     #trainer.initialize(opt)
