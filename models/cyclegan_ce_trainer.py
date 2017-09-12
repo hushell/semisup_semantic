@@ -27,7 +27,7 @@ class CycleGANCrossEntTrainer(BaseTrainer):
             networks.print_network(self.models['G_B'])
             print('-----------------------------------------------')
             networks.print_network(self.models['D_A'])
-            networks.print_network(self.models['D_B'])
+            #networks.print_network(self.models['D_B'])
 
     def _set_model(self, opt):
         self.models['G_A'] = networks.define_G(opt.input_nc, opt.output_nc, opt.ngf, opt.which_model_netG,
@@ -37,9 +37,9 @@ class CycleGANCrossEntTrainer(BaseTrainer):
             # TODO: G_B outputs an intermediate representation rather than down to A, e.g., bottleneck of G_A
             self.models['G_B'] = networks.define_G(opt.output_nc, opt.input_nc, opt.ngf, opt.which_model_netG,
                                                    opt.norm, opt.use_dropout, self.gpu_ids, 'tanh') # G_B(B)
-            self.models['D_B'] = networks.define_D(opt.output_nc, opt.ndf, # D_B(B)
-                                                   opt.which_model_netD,
-                                                   opt.n_layers_D, opt.norm, use_sigmoid, self.gpu_ids)
+            #self.models['D_B'] = networks.define_D(opt.output_nc, opt.ndf, # D_B(B)
+            #                                       opt.which_model_netD,
+            #                                       opt.n_layers_D, opt.norm, use_sigmoid, self.gpu_ids)
             self.models['D_A'] = networks.define_D(opt.input_nc, opt.ndf, # D_A(A)
                                                    opt.which_model_netD, # TODO: use a different netD for D_B
                                                    opt.n_layers_D, opt.norm, use_sigmoid, self.gpu_ids)
@@ -48,15 +48,15 @@ class CycleGANCrossEntTrainer(BaseTrainer):
         self.lossfuncs['CE'] = torch.nn.NLLLoss2d()
         self.lossfuncs['L1'] = torch.nn.L1Loss()
         self.lossfuncs['GAN_A'] = networks.GANLoss(use_lsgan=not self.opt.no_lsgan, tensor=self.Tensor) # GAN on A
-        self.lossfuncs['GAN_B'] = networks.GANLoss(use_lsgan=not self.opt.no_lsgan, tensor=self.Tensor) # GAN on B
+        #self.lossfuncs['GAN_B'] = networks.GANLoss(use_lsgan=not self.opt.no_lsgan, tensor=self.Tensor) # GAN on B
         if len(self.gpu_ids) > 0:
             self.lossfuncs['CE'] = self.lossfuncs['CE'].cuda(self.gpu_ids[0])
             self.lossfuncs['L1'] = self.lossfuncs['L1'].cuda(self.gpu_ids[0])
             self.lossfuncs['GAN_A'] = self.lossfuncs['GAN_A'].cuda(self.gpu_ids[0])
-            self.lossfuncs['GAN_B'] = self.lossfuncs['GAN_B'].cuda(self.gpu_ids[0])
+            #self.lossfuncs['GAN_B'] = self.lossfuncs['GAN_B'].cuda(self.gpu_ids[0])
 
     def _set_fake_pool(self):
-        self.fake_pool['B'] = ImagePool(self.opt.pool_size)
+        #self.fake_pool['B'] = ImagePool(self.opt.pool_size)
         self.fake_pool['A'] = ImagePool(self.opt.pool_size)
 
     def forward(self):
@@ -93,6 +93,7 @@ class CycleGANCrossEntTrainer(BaseTrainer):
         self.losses['D_B'].backward()
 
     def backward_D_A(self):
+        # TODO: enquery fake_A as well, and input to D_A
         rec_A = self.fake_pool['A'].query(self.rec_A)
 
         # D_A(A)
@@ -101,6 +102,7 @@ class CycleGANCrossEntTrainer(BaseTrainer):
         self.losses['D_A'].backward()
 
     def backward_G_AB(self):
+        # TODO: another update for G_B with fake_A
         # L1( G_B(G_A(A)), A )
         self.losses['G_A-G_B-L1'] = self.lossfuncs['L1'](self.rec_A, self.real_A)
 
@@ -115,12 +117,13 @@ class CycleGANCrossEntTrainer(BaseTrainer):
             # cross_ent(G_A(A), B)
             self.losses['G_A-CE'] = self.lossfuncs['CE'](self.fake_B, self.real_B)
 
-            # suppose: min_G 1/2 log(1 - D(fake))
-            # non-saturating: max_G 1/2 log(D(fake)), fake = G_A(A)
-            pred_fake = self.models['D_B'].forward(self.fake_B) # back-prop will flow fake_B = G_A(A)
-            self.losses['G_A-GAN'] = self.lossfuncs['GAN_B'](pred_fake, True) * 0.5
+            ## suppose: min_G 1/2 log(1 - D(fake))
+            ## non-saturating: max_G 1/2 log(D(fake)), fake = G_A(A)
+            #pred_fake = self.models['D_B'].forward(self.fake_B) # back-prop will flow fake_B = G_A(A)
+            #self.losses['G_A-GAN'] = self.lossfuncs['GAN_B'](pred_fake, True) * 0.5
 
-            self.losses['G_AB'] += self.losses['G_A-CE']*self.opt.lambda_B + self.losses['G_A-GAN']
+            #self.losses['G_AB'] += self.losses['G_A-CE']*self.opt.lambda_B + self.losses['G_A-GAN']
+            self.losses['G_AB'] += self.losses['G_A-CE']*self.opt.lambda_B
 
         self.losses['G_AB'].backward()
 
@@ -132,10 +135,10 @@ class CycleGANCrossEntTrainer(BaseTrainer):
         self.optimizers['G_B'].step()
         self.optimizers['G_A'].step()
 
-        # D_B
-        self.optimizers['D_B'].zero_grad()
-        self.backward_D_B()
-        self.optimizers['D_B'].step()
+        ## D_B
+        #self.optimizers['D_B'].zero_grad()
+        #self.backward_D_B()
+        #self.optimizers['D_B'].step()
 
         # D_A
         self.optimizers['D_A'].zero_grad()

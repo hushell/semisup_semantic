@@ -26,7 +26,7 @@ opt.phase = 'train'
 opt.isTrain = True
 train_loader = CreateDataLoader(opt)
 
-opt = train_loader.update_opt(opt)
+#opt = train_loader.update_opt(opt)
 
 visualizer = Visualizer(opt)
 trainer = CreateTrainer(opt)
@@ -42,19 +42,25 @@ if opt.continue_train:
 total_steps = 0 if not opt.continue_train else int(opt.which_epoch)*len(train_loader)
 begin_epoch = 1 if not opt.continue_train else int(opt.which_epoch)+1
 
-# on begin training
-train_acc = expmgr.evaluation('train')
-val_acc = expmgr.evaluation('val')
-metrics = {'train_acc': train_acc, 'val_acc': val_acc, 'epoch': 0}
-expmgr.update_history(metrics)
+## on begin training
+#train_acc = expmgr.evaluation('train')
+#val_acc = expmgr.evaluation('val')
+#metrics = {'train_acc': train_acc, 'val_acc': val_acc, 'epoch': 0}
+#expmgr.update_history(metrics)
 
 # main loop
 for epoch in range(begin_epoch, opt.niter+opt.niter_decay+1):
     # on begin epoch
+    expmgr.on_begin_epoch(epoch)
     trainer.update_learning_rate(epoch)
     epoch_start_time = time.time()
 
     for i, data in enumerate(train_loader):
+        if opt.unsup_ignore:
+            if data['unsup'][0]:
+                print('sample %d is unsupervised' % i)
+                continue
+
         total_steps += opt.batchSize
 
         # gradient step
@@ -72,6 +78,7 @@ for epoch in range(begin_epoch, opt.niter+opt.niter_decay+1):
             expmgr.print_plot_current_losses(epoch, total_steps, t)
 
     # on end epoch
+    expmgr.on_end_epoch(epoch)
     expmgr.plot_current_images(epoch, i, do_save=True)
     msg = '===> End of epoch %d / %d \t Time Taken: %.2f sec\n' % \
                 (epoch, opt.niter+opt.niter_decay, time.time() - epoch_start_time)
