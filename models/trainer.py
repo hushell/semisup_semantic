@@ -158,6 +158,9 @@ def CreateTrainer(opt):
     elif opt.loss == 'assvm':
         from .amortized_struct_svm_trainer import AmortStructSVMTrainer
         trainer = AmortStructSVMTrainer(opt)
+    elif opt.loss == 'ebgan':
+        from .amortized_struct_ebgan_trainer import AmortStructEBGANTrainer
+        trainer = AmortStructEBGANTrainer(opt)
     else:
         raise ValueError("trainer [%s] not recognized." % opt.loss)
     #trainer.initialize(opt)
