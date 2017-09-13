@@ -4,30 +4,39 @@ import torch
 from pdb import set_trace as st
 from torch.autograd import Variable
 class ImagePool():
-    def __init__(self, pool_size):
+    def __init__(self, pool_size, batch_size=4):
         self.pool_size = pool_size
         if self.pool_size > 0:
             self.num_imgs = 0
             self.images = []
+        self.batch_size = batch_size
 
-    def query(self, images):
-        if self.pool_size == 0:
-            return images
+    def query(self, images=None):
         return_images = []
-        for image in images.data:
-            image = torch.unsqueeze(image, 0)
-            if self.num_imgs < self.pool_size:
-                self.num_imgs = self.num_imgs + 1
-                self.images.append(image)
-                return_images.append(image)
-            else:
-                p = random.uniform(0, 1)
-                if p > 0.5:
-                    random_id = random.randint(0, self.pool_size-1)
-                    tmp = self.images[random_id].clone()
-                    self.images[random_id] = image
-                    return_images.append(tmp)
-                else:
+        if images is None:
+            if self.num_imgs < self.batch_size:
+                return None
+            for _ in range(self.batch_size):
+                random_id = random.randint(0, self.num_imgs-1)
+                tmp = self.images[random_id].clone()
+                return_images.append(tmp)
+        else:
+            if self.pool_size == 0:
+                return images
+            for image in images.data:
+                image = torch.unsqueeze(image, 0)
+                if self.num_imgs < self.pool_size:
+                    self.num_imgs = self.num_imgs + 1
+                    self.images.append(image)
                     return_images.append(image)
+                else:
+                    p = random.uniform(0, 1)
+                    if p > 0.5:
+                        random_id = random.randint(0, self.pool_size-1)
+                        tmp = self.images[random_id].clone()
+                        self.images[random_id] = image
+                        return_images.append(tmp)
+                    else:
+                        return_images.append(image)
         return_images = Variable(torch.cat(return_images, 0))
         return return_images

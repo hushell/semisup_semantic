@@ -70,7 +70,7 @@ for epoch in range(begin_epoch, opt.niter+opt.niter_decay+1):
         t = (time.time() - iter_start_time) / opt.batchSize
 
         # plot images
-        if total_steps % opt.display_freq == 0:
+        if total_steps % opt.display_freq == 0: # TODO: resume makes total_steps never mod display_freq 0
             expmgr.plot_current_images(epoch, i, do_save=False)
 
         # plot metrics
