@@ -7,6 +7,9 @@ from . import networks
 from util.image_pool import ImagePool
 
 G_A_init_weight_path = './checkpoints/dropout_camvid_cross_ent_st_resnet_9blocks_netD4_b4/G_A_net_1000.pth'
+N_LOSS_AUG_ITER = 10
+N_INFER_ITER = 10
+ON_DEBUG_MODE = True
 
 class AmortStructSVMTrainer(BaseTrainer):
     def name(self):
@@ -66,21 +69,28 @@ class AmortStructSVMTrainer(BaseTrainer):
         self.real_A = Variable(self.input_A)
         self.real_B = Variable(self.input_B)
 
-        msg = 'test %s: loss_test =' % os.path.basename(self.image_paths[0])
-        for i in range(10): # TODO: more iters?
+        msg = 'test %s: (f,CE) =' % os.path.basename(self.image_paths[0])
+        for i in range(N_INFER_ITER): # TODO: more iters?
             self.fake_B = self.models['G_test'].forward(self.real_A)
+
             fake_pair = torch.cat((self.real_A, self.fake_B), dim=1)
             D_B_fake_pair = self.models['D_B'].forward(fake_pair)
             loss_test = torch.mean( -D_B_fake_pair )
+
             self.optimizers['G_test'].zero_grad()
             loss_test.backward()
             self.optimizers['G_test'].step()
-            msg += ' %f,' % (loss_test.data[0])
+
+            if ON_DEBUG_MODE:
+                CE_temp = self.lossfuncs['CE'](self.fake_B, self.real_B)
+                msg += ' (%f,%f),' % (-loss_test.data[0], CE_temp) # check if f and CE are correlated
+            else:
+                msg += ' (%f),' % (-loss_test.data[0])
         print(msg)
 
-        self.fake_B = self.models['G_test'].forward(self.real_A)
-
     def backward_G_A(self):
+        ''' loss-augmented inference by G_A
+        '''
         # G_A(A)
         self.fake_B = self.models['G_A'].forward(self.real_A)
 
@@ -95,6 +105,9 @@ class AmortStructSVMTrainer(BaseTrainer):
         self.losses['LL_G'] = torch.mean( -D_B_fake_pair - self.opt.lambda_B * self.losses['G_A-CE'] )
         self.losses['LL_G'].backward()
 
+        if ON_DEBUG_MODE:
+            print('backward_G_A(): G_A-CE = %f, -f = %f, LL_G = %f' % (self.losses['G_A-CE'], -D_B_fake_pair, self.losses['LL_G']))
+
     def backward_D_B(self):
         # current most-violated
         self.fake_B = self.models['G_A'].forward(self.real_A) # since G_A has updated
@@ -108,16 +121,16 @@ class AmortStructSVMTrainer(BaseTrainer):
         D_B_real_pair = self.models['D_B'].forward(self.real_pair)
 
         # LL_f := [f_G - lambda_B * CE - f_R ]_+
-        self.losses['LL_f'] = torch.clamp(D_B_fake_pair + self.opt.lambda_B * self.losses['G_A-CE'] - D_B_real_pair , min=0)
+        self.losses['LL_f'] = torch.clamp(D_B_fake_pair - D_B_real_pair + self.opt.lambda_B * self.losses['G_A-CE'], min=0)
         self.losses['LL_f'] = torch.mean( self.losses['LL_f'] )
         self.losses['LL_f'].backward()
 
-        # for debug
-        self.losses['D_Bdiff'] = torch.mean( D_B_fake_pair - D_B_real_pair )
+        if ON_DEBUG_MODE:
+            self.losses['f_diff'] = torch.mean( D_B_fake_pair - D_B_real_pair )
 
     def backward(self):
         # G_A
-        for _ in range(1):
+        for _ in range(N_LOSS_AUG_ITER):
             self.optimizers['G_A'].zero_grad()
             self.backward_G_A()
             self.optimizers['G_A'].step()
