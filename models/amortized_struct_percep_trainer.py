@@ -89,11 +89,11 @@ class AmortStructPercepTrainer(BaseTrainer):
         #if epoch > 1 and epoch % 50 == 0:
         #    self.trainer.opt.lambda_B *= 1e2
         if epoch == 100:
-            self.trainer.opt.lambda_B = 100
+            self.opt.lambda_B = 100
         elif epoch == 500:
-            self.trainer.opt.lambda_B = 1000
+            self.opt.lambda_B = 1000
         elif epoch == 800:
-            self.trainer.opt.lambda_B = 10000
+            self.opt.lambda_B = 10000
 
     def compute_real_B_onehot(self):
         opt = self.opt
