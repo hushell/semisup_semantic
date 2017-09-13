@@ -60,8 +60,8 @@ class AmortStructPercepTrainer(BaseTrainer):
         self.losses['G_A-D_B'] = D_B_fake_pair - D_B_real_pair
         self.losses['G_A-D_B'] = -torch.mean( torch.pow(self.losses['G_A-D_B'], 2) )
 
-        # lambda_A * cross_ent - MSE
-        self.losses['G_A'] = self.losses['G_A-CE'] + self.losses['G_A-D_B']*self.opt.lambda_A
+        # lambda_B * cross_ent - MSE
+        self.losses['G_A'] = self.losses['G_A-CE'] + self.losses['G_A-D_B']*self.opt.lambda_B
         self.losses['G_A'].backward()
 
     def backward_D_B(self):
@@ -84,6 +84,16 @@ class AmortStructPercepTrainer(BaseTrainer):
         self.optimizers['D_B'].zero_grad()
         self.backward_D_B()
         self.optimizers['D_B'].step()
+
+    def on_begin_epoch(self, epoch):
+        #if epoch > 1 and epoch % 50 == 0:
+        #    self.trainer.opt.lambda_B *= 1e2
+        if epoch == 100:
+            self.trainer.opt.lambda_B = 100
+        elif epoch == 500:
+            self.trainer.opt.lambda_B = 1000
+        elif epoch == 800:
+            self.trainer.opt.lambda_B = 10000
 
     def compute_real_B_onehot(self):
         opt = self.opt
