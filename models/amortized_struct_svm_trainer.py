@@ -72,7 +72,7 @@ class AmortStructSVMTrainer(BaseTrainer):
             self.optimizers['G_test'].zero_grad()
             loss_test.backward()
             self.optimizers['G_test'].step()
-            print('test %s (iter %d): loss_test = %f' % (os.path.basename(self.image_paths), i, loss_test))
+            print('test %s (iter %d): loss_test = %f' % (os.path.basename(self.image_paths[0]), i, loss_test.data[0]))
 
         self.fake_B = self.models['G_test'].forward(self.real_A)
 
