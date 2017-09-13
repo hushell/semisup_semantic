@@ -6,7 +6,7 @@ from .trainer import BaseTrainer
 from . import networks
 from util.image_pool import ImagePool
 
-G_A_init_weight_path = '/home/hushell/working/pytorch-dir/semisup_semantic/checkpoints/dropout_camvid_cross_ent_st_resnet_9blocks_netD4_b4/G_A_net_1000.pth'
+G_A_init_weight_path = './checkpoints/dropout_camvid_cross_ent_st_resnet_9blocks_netD4_b4/G_A_net_1000.pth'
 margin_G = 1.0
 
 class AmortStructEBGANTrainer(BaseTrainer):

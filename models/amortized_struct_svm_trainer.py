@@ -6,7 +6,7 @@ from .trainer import BaseTrainer
 from . import networks
 from util.image_pool import ImagePool
 
-G_A_init_weight_path = '/home/hushell/working/pytorch-dir/semisup_semantic/checkpoints/dropout_camvid_cross_ent_st_resnet_9blocks_netD4_b4/G_A_net_1000.pth'
+G_A_init_weight_path = './checkpoints/dropout_camvid_cross_ent_st_resnet_9blocks_netD4_b4/G_A_net_1000.pth'
 
 class AmortStructSVMTrainer(BaseTrainer):
     def name(self):
@@ -32,12 +32,18 @@ class AmortStructSVMTrainer(BaseTrainer):
     def _set_model(self, opt):
         self.models['G_test'] = networks.define_G(opt.input_nc, opt.output_nc, opt.ngf, opt.which_model_netG,
                                                   opt.norm, opt.use_dropout, self.gpu_ids, 'softmax')
+        if os.path.exists(G_A_init_weight_path):
+            state = torch.load(G_A_init_weight_path)
+            self.models['G_test'].load_state_dict(state)
+            print('==> Load G_test from %s' % (G_A_init_weight_path))
+
         if self.isTrain:
             self.models['G_A'] = networks.define_G(opt.input_nc, opt.output_nc, opt.ngf, opt.which_model_netG,
                                                    opt.norm, opt.use_dropout, self.gpu_ids, 'softmax') # G_A(A)
             if os.path.exists(G_A_init_weight_path):
                 state = torch.load(G_A_init_weight_path)
                 self.models['G_A'].load_state_dict(state)
+                print('==> Load G_A from %s' % (G_A_init_weight_path))
 
             use_sigmoid = opt.no_lsgan
             self.models['D_B'] = networks.define_D(opt.output_nc+opt.input_nc, opt.ndf, # D_B( (A,B) )
@@ -57,14 +63,11 @@ class AmortStructSVMTrainer(BaseTrainer):
         self.real_pair = torch.cat((self.real_A, real_B_onehot), dim=1)
 
     def test(self):
-        if os.path.exists(G_A_init_weight_path):
-            state = torch.load(G_A_init_weight_path)
-            self.models['G_test'].load_state_dict(state)
-
         self.real_A = Variable(self.input_A)
         self.real_B = Variable(self.input_B)
 
-        for i in range(10):
+        msg = 'test %s: loss_test =' % os.path.basename(self.image_paths[0])
+        for i in range(10): # TODO: more iters?
             self.fake_B = self.models['G_test'].forward(self.real_A)
             fake_pair = torch.cat((self.real_A, self.fake_B), dim=1)
             D_B_fake_pair = self.models['D_B'].forward(fake_pair)
@@ -72,7 +75,8 @@ class AmortStructSVMTrainer(BaseTrainer):
             self.optimizers['G_test'].zero_grad()
             loss_test.backward()
             self.optimizers['G_test'].step()
-            print('test %s (iter %d): loss_test = %f' % (os.path.basename(self.image_paths[0]), i, loss_test.data[0]))
+            msg += ' %f,' % (loss_test.data[0])
+        print(msg)
 
         self.fake_B = self.models['G_test'].forward(self.real_A)
 
