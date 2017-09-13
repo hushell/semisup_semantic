@@ -7,7 +7,7 @@ from . import networks
 from util.image_pool import ImagePool
 
 G_A_init_weight_path = './checkpoints/dropout_camvid_cross_ent_st_resnet_9blocks_netD4_b4/G_A_net_1000.pth'
-N_LOSS_AUG_ITER = 10
+N_LOSS_AUG_ITER = 3
 N_INFER_ITER = 10
 ON_DEBUG_MODE = True
 
@@ -36,7 +36,7 @@ class AmortStructSVMTrainer(BaseTrainer):
         self.models['G_test'] = networks.define_G(opt.input_nc, opt.output_nc, opt.ngf, opt.which_model_netG,
                                                   opt.norm, opt.use_dropout, self.gpu_ids, 'softmax')
         if os.path.exists(G_A_init_weight_path):
-            state = torch.load(G_A_init_weight_path)
+            state = torch.load(G_A_init_weight_path, map_location=lambda storage, loc: storage)
             self.models['G_test'].load_state_dict(state)
             print('==> Load G_test from %s' % (G_A_init_weight_path))
 
@@ -44,7 +44,7 @@ class AmortStructSVMTrainer(BaseTrainer):
             self.models['G_A'] = networks.define_G(opt.input_nc, opt.output_nc, opt.ngf, opt.which_model_netG,
                                                    opt.norm, opt.use_dropout, self.gpu_ids, 'softmax') # G_A(A)
             if os.path.exists(G_A_init_weight_path):
-                state = torch.load(G_A_init_weight_path)
+                state = torch.load(G_A_init_weight_path, map_location=lambda storage, loc: storage)
                 self.models['G_A'].load_state_dict(state)
                 print('==> Load G_A from %s' % (G_A_init_weight_path))
 
@@ -83,7 +83,7 @@ class AmortStructSVMTrainer(BaseTrainer):
 
             if ON_DEBUG_MODE:
                 CE_temp = self.lossfuncs['CE'](self.fake_B, self.real_B)
-                msg += ' (%f,%f),' % (-loss_test.data[0], CE_temp) # check if f and CE are correlated
+                msg += ' (%f,%f),' % (-loss_test.data[0], CE_temp.data[0]) # check if f and CE are correlated
             else:
                 msg += ' (%f),' % (-loss_test.data[0])
         print(msg)
@@ -105,8 +105,9 @@ class AmortStructSVMTrainer(BaseTrainer):
         self.losses['LL_G'] = torch.mean( -D_B_fake_pair - self.opt.lambda_B * self.losses['G_A-CE'] )
         self.losses['LL_G'].backward()
 
-        if ON_DEBUG_MODE:
-            print('backward_G_A(): G_A-CE = %f, -f = %f, LL_G = %f' % (self.losses['G_A-CE'], -D_B_fake_pair, self.losses['LL_G']))
+        if False:
+            f_val = torch.mean(D_B_fake_pair)
+            print('backward_G_A(): G_A-CE = %f, -f = %f, LL_G = %f' % (self.losses['G_A-CE'].data[0], -f_val.data[0], self.losses['LL_G'].data[0]))
 
     def backward_D_B(self):
         # current most-violated
