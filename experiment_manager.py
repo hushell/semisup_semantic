@@ -115,13 +115,10 @@ class ExperimentManager():
         return eval_results[0]['Mean IoU']
 
     def on_begin_epoch(self, epoch):
-        #if epoch > 1 and epoch % 50 == 0:
-        #    self.trainer.opt.lambda_A *= 1e2
-        #if epoch == 100:
-        #    self.trainer.opt.lambda_A = 100
+        self.trainer.on_begin_epoch(epoch)
         print('==> lambda_A = %f' % self.trainer.opt.lambda_A)
         print('==> lambda_B = %f' % self.trainer.opt.lambda_B)
 
     def on_end_epoch(self, epoch):
-        pass
+        self.trainer.on_end_epoch(epoch)
 

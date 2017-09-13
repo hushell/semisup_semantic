@@ -141,6 +141,12 @@ class BaseTrainer(object):
             if 'G' in lab:
                 self.models[lab].train(mode=mode)
 
+    def on_begin_epoch(self, epoch):
+        pass
+
+    def on_end_epoch(self, epoch):
+        pass
+
 def CreateTrainer(opt):
     trainer = None
     if opt.loss == 'cross_ent':
