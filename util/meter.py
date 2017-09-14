@@ -2,14 +2,15 @@ import numpy as np
 
 # TODO: double check the evaluation code, e.g., ignored class 0
 class SegmentationMeter(object):
-    def __init__(self, n_class):
+    def __init__(self, n_class, ignore_index=-100):
         self.n_class = n_class
         self.hist = np.zeros((n_class, n_class))
+        self.ignore_index = ignore_index
 
     def update_confmat(self, label_true, label_pred):
         label_true = label_true.flatten()
         label_pred = label_pred.flatten()
-        mask = (label_true >= 0) & (label_true < self.n_class) # do NOT evaluate class 0
+        mask = (label_true >= 0) & (label_true < self.n_class) & (label_true != self.ignore_index)
         self.hist += np.bincount(
             self.n_class * label_true[mask].astype(int) +
             label_pred[mask], minlength=self.n_class**2).reshape(self.n_class, self.n_class)

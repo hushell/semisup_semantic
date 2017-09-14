@@ -93,7 +93,7 @@ class ExperimentManager():
     def evaluation(self, phase='train'):
         self.trainer.train(mode=False)
 
-        eval_stats = SegmentationMeter(n_class=self.opt.output_nc)
+        eval_stats = SegmentationMeter(n_class=self.opt.output_nc, ignore_index=self.opt.ignore_index)
         start_time = time.time()
         for data in self.data_loader[phase]:
             self.trainer.set_input(data)
