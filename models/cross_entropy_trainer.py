@@ -28,7 +28,7 @@ class CrossEntropyTrainer(BaseTrainer):
                                                opt.norm, opt.use_dropout, self.gpu_ids, 'softmax') # G_A(A)
 
     def _set_loss(self):
-        self.lossfuncs['CE'] = torch.nn.NLLLoss2d()
+        self.lossfuncs['CE'] = torch.nn.NLLLoss2d(ignore_index=self.opt.ignore_index)
         if len(self.gpu_ids) > 0:
             self.lossfuncs['CE'] = self.lossfuncs['CE'].cuda(self.gpu_ids[0])
 

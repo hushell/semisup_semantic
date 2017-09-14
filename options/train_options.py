@@ -27,4 +27,5 @@ class TrainOptions(BaseOptions):
         self.parser.add_argument('--no_save', action='store_true', help='do not save states')
         self.parser.add_argument('--unsup_portion', type=int, default=0, help='portion of unsupervised, range=0,...,10')
         self.parser.add_argument('--unsup_ignore', action='store_true', help='ignore all unsup examples')
+        self.parser.add_argument('--ignore_index', type=int, default=-100, help='mask this class without contributing to nll_loss')
         self.isTrain = True
