@@ -40,6 +40,7 @@ if opt.continue_train:
 
 ######################################
 total_steps = 0 if not opt.continue_train else int(opt.which_epoch)*len(train_loader)
+total_steps -= total_steps % opt.batchSize
 begin_epoch = 1 if not opt.continue_train else int(opt.which_epoch)+1
 
 ## on begin training
@@ -70,7 +71,7 @@ for epoch in range(begin_epoch, opt.niter+opt.niter_decay+1):
         t = (time.time() - iter_start_time) / opt.batchSize
 
         # plot images
-        if total_steps % opt.display_freq == 0: # TODO: resume makes total_steps never mod display_freq 0
+        if total_steps % opt.display_freq == 0:
             expmgr.plot_current_images(epoch, i, do_save=False)
 
         # plot metrics
