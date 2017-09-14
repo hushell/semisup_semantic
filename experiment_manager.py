@@ -76,13 +76,23 @@ class ExperimentManager():
             optim = torch.load(optim_fpath)
             self.trainer.optimizers[network_label].load_state_dict(optim)
 
+        self.trainer.old_lr = self.trainer.optimizers[network_label].param_groups[0]['lr'] / self.trainer.lr_coeffs[network_label]
+
     def plot_current_images(self, epoch, i, do_save=False):
         images = self.trainer.get_current_visuals()
         for k, im in images.items():
             if 'B' in k:
                 images[k] = util.tensor2lab(im, self.data_loader['train'].dataset.label2color)
             else:
-                images[k] = util.tensor2im(im)
+                images[k] = util.tensor2im(im, imtype=np.float32)
+                d_mean = np.array(self.data_loader['train'].dataset.mean)
+                d_std = np.array(self.data_loader['train'].dataset.std)
+                d_mean = d_mean[:,np.newaxis,np.newaxis]
+                d_std = d_std[:,np.newaxis,np.newaxis]
+                images[k] *= d_std
+                images[k] += d_mean
+                images[k] *= 255.0
+                images[k] = images[k].astype(np.uint8)
         self.visualizer.display_current_results(images, epoch, i, do_save=do_save)
 
     def print_plot_current_losses(self, epoch, total_i, t):

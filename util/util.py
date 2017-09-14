@@ -11,8 +11,8 @@ import collections
 # |imtype|: the desired type of the converted numpy array
 def tensor2im(image_tensor, imtype=np.uint8):
     image_numpy = image_tensor[0]
-    #image_numpy = (np.transpose(image_numpy, (1, 2, 0))) * 255.0
-    image_numpy = image_numpy * 255.0
+    #image_numpy = np.transpose(image_numpy, (1, 2, 0)) # CHW -> HWC
+    #image_numpy = image_numpy * 255.0
     return image_numpy.astype(imtype)
 
 def tensor2lab(lab_tensor, label2color):
