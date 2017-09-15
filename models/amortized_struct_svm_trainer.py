@@ -8,7 +8,8 @@ from util.image_pool import ImagePool
 
 G_A_init_weight_path = './checkpoints/dropout_camvid_cross_ent_st_resnet_9blocks_netD4_b4/G_A_net_1000.pth'
 N_LOSS_AUG_ITER = 3
-N_INFER_ITER = 10
+N_INFER_ITER = 30
+LR_INFER = 1e-1
 ON_DEBUG_MODE = True
 
 class AmortStructSVMTrainer(BaseTrainer):
@@ -65,7 +66,7 @@ class AmortStructSVMTrainer(BaseTrainer):
         real_B_onehot = self.compute_real_B_onehot() # one-hot real_B, dtype=Float
         self.real_pair = torch.cat((self.real_A, real_B_onehot), dim=1)
 
-    def test(self):
+    def test_Gtest(self):
         self.real_A = Variable(self.input_A)
         self.real_B = Variable(self.input_B)
 
@@ -86,6 +87,28 @@ class AmortStructSVMTrainer(BaseTrainer):
                 msg += ' (%f,%f),' % (-loss_test.data[0], CE_temp.data[0]) # check if f and CE are correlated
             else:
                 msg += ' (%f),' % (-loss_test.data[0])
+        print(msg)
+
+    def test(self):
+        self.real_A = Variable(self.input_A)
+        self.real_B = Variable(self.input_B, volatile=True)
+
+        y_0 = self.models['G_test'].forward(self.real_A)
+        self.fake_B = Variable(y_0.data.clone(), requires_grad=True)
+        self.fake_B.grad = Variable(y_0.data.new().resize_as_(y_0.data).zero_())
+
+        msg = 'test %s: f =' % os.path.basename(self.image_paths[0])
+        for i in range(N_INFER_ITER):
+            fake_pair = torch.cat((self.real_A, self.fake_B), dim=1)
+            D_B_fake_pair = self.models['D_B'].forward(fake_pair)
+            D_B_val = torch.mean( D_B_fake_pair )
+
+            self.fake_B.grad.data.zero_()
+            D_B_val.backward()
+            self.fake_B.data.add_(LR_INFER, self.fake_B.grad.data)
+
+            if ON_DEBUG_MODE:
+                msg += ' %f,' % (D_B_val.data[0])
         print(msg)
 
     def backward_G_A(self):
