@@ -26,7 +26,7 @@ class BaseOptions():
                                  help='chooses which model to use. cycle_gan, cross_ent, gan_only, gan_ce')
         self.parser.add_argument('--which_model_netD', type=str, default='basic', help='selects model to use for netD')
         self.parser.add_argument('--which_model_netG', type=str, default='resnet_9blocks', help='selects model to use for netG')
-        self.parser.add_argument('--norm', type=str, default='instance', help='instance normalization or batch normalization')
+        self.parser.add_argument('--norm', type=str, default='batch', help='instance normalization or batch normalization')
         self.parser.add_argument('--use_dropout', action='store_true', help='use dropout for the generator')
         self.parser.add_argument('--n_layers_D', type=int, default=3, help='only used if which_model_netD==n_layers')
         self.parser.add_argument('--ngf', type=int, default=64, help='# of gen filters in first conv layer')
@@ -42,6 +42,7 @@ class BaseOptions():
         self.parser.add_argument('--resize_or_crop', type=str, default='resize_and_crop', help='scaling and cropping of images at load time [resize_and_crop|crop|scale_width|no_resize]')
         self.parser.add_argument('--no_flip', action='store_true', help='if specified, do not flip the images for data argumentation')
         #self.parser.add_argument('--dataroot', required=True, help='path to images (should have subfolders trainA, trainB, valA, valB, etc)')
+        self.parser.add_argument('--ignore_index', type=int, default=-100, help='mask this class without contributing to nll_loss')
         ################################
         # external
         ################################
@@ -49,6 +50,7 @@ class BaseOptions():
         self.parser.add_argument('--display_id', type=int, default=1, help='window id of the web display')
         self.parser.add_argument('--port', type=int, default=8097, help='port of visdom')
         self.parser.add_argument('--gpu_ids', type=str, default='', help='gpu ids: e.g. 0; 0,2')
+        self.parser.add_argument('--no_html', action='store_true', help='do not save intermediate training results to [opt.checkpoints_dir]/[opt.name]/web/')
 
         self.initialized = True
 
