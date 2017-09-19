@@ -8,7 +8,7 @@ from . import html
 class Visualizer():
     def __init__(self, opt):
         self.display_id = opt.display_id
-        self.use_html = opt.isTrain and not opt.no_html
+        self.use_html = not opt.no_html
         self.win_size = opt.display_winsize
         self.name = opt.name
         if self.display_id > 0:
@@ -20,6 +20,11 @@ class Visualizer():
             self.img_dir = os.path.join(self.web_dir, 'images')
             print('===> Create web directory: %s' % self.web_dir)
             util.mkdirs([self.web_dir, self.img_dir])
+
+            self.res_dir = os.path.join(opt.checkpoints_dir, opt.name, 'results')
+            self.res_img_dir = os.path.join(self.res_dir, 'images')
+            print('===> Create results directory: %s' % self.res_dir)
+            util.mkdirs([self.res_dir, self.res_img_dir])
 
         self.log_name = os.path.join(opt.checkpoints_dir, opt.name, 'loss_log.txt')
         with open(self.log_name, "a") as log_file:
@@ -38,22 +43,43 @@ class Visualizer():
         # save images to a html file
         if self.use_html and do_save:
             for label, image_numpy in visuals.items():
-                img_path = os.path.join(self.img_dir, 'epoch%.3d_%s.png' % (epoch, label))
+                if epoch == 9999: # test
+                    image_name = 'epoch%d_iter%d_%s.png' % (epoch,it,label)
+                    img_path = os.path.join(self.res_img_dir, image_name)
+                else:
+                    image_name = 'epoch%d_%s.png' % (epoch,label) # train only save 1 img each epoch
+                    img_path = os.path.join(self.img_dir, image_name)
                 util.save_image(image_numpy.transpose((1,2,0)), img_path)
-            # update website
-            webpage = html.HTML(self.web_dir, 'Experiment name = %s' % self.name, reflesh=1)
-            for n in range(epoch, 0, -1):
-                webpage.add_header('epoch [%d]' % n)
-                ims = []
-                txts = []
-                links = []
 
-                for label, image_numpy in visuals.items():
-                    img_path = 'epoch%.3d_%s.png' % (n, label)
-                    ims.append(img_path)
-                    txts.append(label)
-                    links.append(img_path)
-                webpage.add_images(ims, txts, links, width=self.win_size)
+            # update website
+            if epoch == 9999:
+                webpage = html.HTML(self.res_dir, 'Experiment name = %s' % self.name, reflesh=1)
+                for n in range(it, 0, -1):
+                    webpage.add_header('index [%d]' % n)
+                    ims = []
+                    txts = []
+                    links = []
+
+                    for label, image_numpy in visuals.items():
+                        img_path = 'epoch%d_iter%d_%s.png' % (epoch,n,label)
+                        ims.append(img_path)
+                        txts.append(label)
+                        links.append(img_path)
+                    webpage.add_images(ims, txts, links, width=self.win_size)
+            else:
+                webpage = html.HTML(self.web_dir, 'Experiment name = %s' % self.name, reflesh=1)
+                for n in range(epoch, 0, -1):
+                    webpage.add_header('epoch [%d]' % n)
+                    ims = []
+                    txts = []
+                    links = []
+
+                    for label, image_numpy in visuals.items():
+                        img_path = 'epoch%d_%s.png' % (n,label)
+                        ims.append(img_path)
+                        txts.append(label)
+                        links.append(img_path)
+                    webpage.add_images(ims, txts, links, width=self.win_size)
             webpage.save()
 
     # plot metrics

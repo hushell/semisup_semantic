@@ -34,7 +34,8 @@ class ExperimentManager():
             epoch = self.metrics_history.loc[self.metrics_history.last_valid_index(), 'epoch']
 
         self.load_weights(epoch)
-        self.load_optimizer(epoch)
+        if self.opt.isTrain:
+            self.load_optimizer(epoch)
 
     def update_history(self, metrics):
         ''' metrics is a dict with keys a subset of pd.columns
@@ -76,7 +77,7 @@ class ExperimentManager():
             optim = torch.load(optim_fpath)
             self.trainer.optimizers[network_label].load_state_dict(optim)
 
-        self.trainer.old_lr = self.trainer.optimizers[network_label].param_groups[0]['lr'] / self.trainer.lr_coeffs[network_label]
+        self.trainer.old_lr = self.trainer.optimizers['G_A'].param_groups[0]['lr'] / self.trainer.lr_coeffs['G_A']
 
     def plot_current_images(self, epoch, i, do_save=False):
         images = self.trainer.get_current_visuals()
@@ -105,11 +106,14 @@ class ExperimentManager():
 
         eval_stats = SegmentationMeter(n_class=self.opt.output_nc, ignore_index=self.opt.ignore_index)
         start_time = time.time()
-        for data in self.data_loader[phase]:
+        for i,data in enumerate(self.data_loader[phase]):
             self.trainer.set_input(data)
-            self.trainer.test()
+            self.trainer.test(phase)
             pred, gt = self.trainer.get_eval_pair()
             eval_stats.update_confmat(gt, pred)
+
+            if phase is 'test': # save images only in testing
+                self.plot_current_images(9999, i, do_save=True)
 
         eval_results = eval_stats.get_eval_results()
         msg = '==> %s Results [%d images] \t Time Taken: %.2f sec: %s\n' % \

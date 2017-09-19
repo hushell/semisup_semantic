@@ -180,6 +180,13 @@ class CycleGANCrossEntTrainer(BaseTrainer):
 
     def get_current_visuals(self):
         (pred, gt) = self.get_eval_pair()
-        return {'real_A': self.real_A.data.cpu().float().numpy(),
-                'rec_A': self.rec_A.data.cpu().float().numpy(),
+        res = {'real_A': self.real_A.data.cpu().float().numpy(),
                 'real_B': gt, 'fake_B': pred}
+        if hasattr(self, 'rec_A'):
+            res['rec_A'] = self.rec_A.data.cpu().float().numpy()
+        return res
+
+    def test(self, phase='train'):
+        super(CycleGANCrossEntTrainer, self).test()
+        if phase == 'test': # in training's eval, don't need rec_A
+            self.rec_A = self.models['G_B'].forward(self.fake_B) # G_B(G_A(A))

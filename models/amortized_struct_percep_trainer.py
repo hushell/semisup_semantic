@@ -36,7 +36,7 @@ class AmortStructPercepTrainer(BaseTrainer):
                                                    opt.n_layers_D, opt.norm, use_sigmoid, self.gpu_ids)
 
     def _set_loss(self):
-        self.lossfuncs['CE'] = torch.nn.NLLLoss2d()
+        self.lossfuncs['CE'] = torch.nn.NLLLoss2d(ignore_index=self.opt.ignore_index)
         if len(self.gpu_ids) > 0:
             self.lossfuncs['CE'] = self.lossfuncs['CE'].cuda(self.gpu_ids[0])
 
@@ -66,9 +66,11 @@ class AmortStructPercepTrainer(BaseTrainer):
 
     def backward_D_B(self):
         self.fake_B = self.models['G_A'].forward(self.real_A) # since G_A has updated
+
         fake_pair = torch.cat((self.real_A, self.fake_B.detach()), dim=1)
         D_B_fake_pair = self.models['D_B'].forward(fake_pair)
         D_B_real_pair = self.models['D_B'].forward(self.real_pair) # TODO: need this again?
+
         self.losses['D_B'] = D_B_fake_pair - D_B_real_pair
         self.losses['D_B'] = torch.mean( torch.pow(self.losses['D_B'], 2) )
         self.losses['D_B'].backward()
@@ -86,8 +88,6 @@ class AmortStructPercepTrainer(BaseTrainer):
         self.optimizers['D_B'].step()
 
     def on_begin_epoch(self, epoch):
-        #if epoch > 1 and epoch % 50 == 0:
-        #    self.trainer.opt.lambda_B *= 1e2
         if epoch == 100:
             self.opt.lambda_B = 100
         elif epoch == 500:

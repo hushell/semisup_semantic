@@ -22,11 +22,11 @@ opt.gpu_ids = range(0,len(opt.gpu_ids)) # new range starting from 0
 opt.phase = 'val'
 opt.isTrain = False
 val_loader = CreateDataLoader(opt)
+
 opt.phase = 'train'
 opt.isTrain = True
 train_loader = CreateDataLoader(opt)
-
-#opt = train_loader.update_opt(opt)
+opt = train_loader.update_opt(opt)
 
 visualizer = Visualizer(opt)
 trainer = CreateTrainer(opt)
