@@ -52,6 +52,8 @@ class CustomDatasetDataLoader(object):
     def update_opt(self, opt):
         if hasattr(self.dataset, 'n_classes'):
             opt.output_nc = self.dataset.n_classes
+        if hasattr(self.dataset, 'ignore_index'):
+            opt.ignore_index = self.dataset.ignore_index
         #if hasattr(self.dataset, 'heightSize'):
         #    opt.heightSize = self.dataset.heightSize
         #if hasattr(self.dataset, 'widthSize'):

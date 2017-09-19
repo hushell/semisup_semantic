@@ -17,6 +17,7 @@ class CamvidDataset(data.Dataset):
         self.heightSize = 360
         self.widthSize = 480
         self.n_classes = 12
+        self.ignore_index = 11
         #self.mean = np.array([104.00699, 116.66877, 122.67892])
         self.mean = [0.41189489566336, 0.4251328133025, 0.4326707089857]
         self.std = [0.27413549931506, 0.28506257482912, 0.28284674400252]
