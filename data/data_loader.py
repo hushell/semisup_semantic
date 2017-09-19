@@ -52,10 +52,10 @@ class CustomDatasetDataLoader(object):
     def update_opt(self, opt):
         if hasattr(self.dataset, 'n_classes'):
             opt.output_nc = self.dataset.n_classes
-        if hasattr(self.dataset, 'heightSize'):
-            opt.heightSize = self.dataset.heightSize
-        if hasattr(self.dataset, 'widthSize'):
-            opt.widthSize = self.dataset.widthSize
+        #if hasattr(self.dataset, 'heightSize'):
+        #    opt.heightSize = self.dataset.heightSize
+        #if hasattr(self.dataset, 'widthSize'):
+        #    opt.widthSize = self.dataset.widthSize
         return opt
 
 def CreateDataset(opt):

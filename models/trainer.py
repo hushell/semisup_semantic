@@ -98,7 +98,7 @@ class BaseTrainer(object):
         self.backward()
 
     # used in test time, no backprop
-    def test(self):
+    def test(self, phase='train'):
         self.real_A = Variable(self.input_A, volatile=True)
         self.real_B = Variable(self.input_B, volatile=True)
         self.fake_B = self.models['G_A'].forward(self.real_A)
@@ -158,6 +158,9 @@ def CreateTrainer(opt):
     elif opt.loss == 'cycle_gan_ce':
         from .cyclegan_ce_trainer import CycleGANCrossEntTrainer
         trainer = CycleGANCrossEntTrainer(opt)
+    elif opt.loss == 'symm_gan_ce':
+        from .symmetric_gan_trainer import SymmetricGANCETrainer
+        trainer = SymmetricGANCETrainer(opt)
     elif opt.loss == 'asp':
         from .amortized_struct_percep_trainer import AmortStructPercepTrainer
         trainer = AmortStructPercepTrainer(opt)
@@ -167,6 +170,9 @@ def CreateTrainer(opt):
     elif opt.loss == 'ebgan':
         from .amortized_struct_ebgan_trainer import AmortStructEBGANTrainer
         trainer = AmortStructEBGANTrainer(opt)
+    elif opt.loss == 'ace':
+        from .amortized_cross_ent_trainer import AmortCrossEntTrainer
+        trainer = AmortCrossEntTrainer(opt)
     else:
         raise ValueError("trainer [%s] not recognized." % opt.loss)
     #trainer.initialize(opt)
