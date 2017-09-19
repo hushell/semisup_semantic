@@ -37,7 +37,7 @@ class GANCrossEntTrainer(BaseTrainer):
                                                    opt.n_layers_D, opt.norm, use_sigmoid, self.gpu_ids)
 
     def _set_loss(self):
-        self.lossfuncs['CE'] = torch.nn.NLLLoss2d()
+        self.lossfuncs['CE'] = torch.nn.NLLLoss2d(ignore_index=self.opt.ignore_index)
         self.lossfuncs['GAN_B'] = networks.GANLoss(use_lsgan=not self.opt.no_lsgan, tensor=self.Tensor) # GAN on B
         if len(self.gpu_ids) > 0:
             self.lossfuncs['CE'] = self.lossfuncs['CE'].cuda(self.gpu_ids[0])
