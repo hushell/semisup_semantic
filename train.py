@@ -59,7 +59,7 @@ for epoch in range(begin_epoch, opt.niter+opt.niter_decay+1):
     for i, data in enumerate(train_loader):
         if opt.unsup_ignore:
             if data['unsup'][0]:
-                print('sample %d is unsupervised' % i)
+                print('index %d is unsupervised' % i)
                 continue
 
         total_steps += opt.batchSize
@@ -84,6 +84,7 @@ for epoch in range(begin_epoch, opt.niter+opt.niter_decay+1):
     msg = '===> End of epoch %d / %d \t Time Taken: %.2f sec\n' % \
                 (epoch, opt.niter+opt.niter_decay, time.time() - epoch_start_time)
 
+    # evaluation & save
     if epoch % opt.save_epoch_freq == 0:
         msg += '===> Saving the model at the end of epoch %d, total_iters %d\n' % (epoch, total_steps)
         if not opt.no_save:

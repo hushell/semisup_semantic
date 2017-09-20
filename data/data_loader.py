@@ -1,5 +1,5 @@
 import torch.utils.data
-from torch.utils.data.sampler import Sampler, RandomSampler
+from torch.utils.data.sampler import Sampler, RandomSampler, SequentialSampler
 import numpy as np
 
 def CreateDataLoader(opt):
@@ -20,7 +20,7 @@ class SemiSupRandomSampler(Sampler):
         unsup_indices = unsup_indices[0:self.len_unsup].reshape((-1,self.batchSize))
         sup_indices = sup_indices[0:self.len_sup].reshape((-1,self.batchSize))
 
-        indices = np.vstack((unsup_indices, sup_indices))
+        indices = np.vstack((unsup_indices, sup_indices)) # matrix: each row contains indices of a batch
         np.random.shuffle(indices) # in place shuffle along axis-0
         return iter(indices.ravel().astype(np.int32))
 
@@ -30,8 +30,9 @@ class SemiSupRandomSampler(Sampler):
 class CustomDatasetDataLoader(object):
     def __init__(self, opt):
         self.dataset = CreateDataset(opt)
+        sampler_type = RandomSampler if opt.isTrain else SequentialSampler
         my_sampler = SemiSupRandomSampler(self.dataset.unsup, opt.batchSize) \
-                        if opt.unsup_portion > 0 else RandomSampler(self.dataset)
+                        if opt.isTrain and opt.unsup_portion > 0 else sampler_type(self.dataset)
         self.dataloader = torch.utils.data.DataLoader(
             self.dataset,
             batch_size=opt.batchSize,
