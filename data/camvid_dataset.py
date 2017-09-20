@@ -21,11 +21,15 @@ class CamvidDataset(data.Dataset):
         #self.mean = np.array([104.00699, 116.66877, 122.67892])
         self.mean = [0.41189489566336, 0.4251328133025, 0.4326707089857]
         self.std = [0.27413549931506, 0.28506257482912, 0.28284674400252]
+
+        # samples
         self.files = os.listdir(root + '/' + self.split)
         self.unsup = np.zeros(len(self.files), dtype=np.int32)
         if opt.isTrain and opt.unsup_portion > 0:
-            tmp = np.concatenate([np.arange(i,len(self.files),10) for i in range(opt.unsup_portion)])
+            assert(opt.unsup_portion < opt.portion_total) # e.g., unsup_portion=0: no unsup; unsup_portion=portion_total=10: all unsup
+            tmp = np.concatenate([np.arange(i,len(self.files),opt.portion_total) for i in range(opt.unsup_portion)])
             self.unsup[tmp] = 1
+            print('==> unsupervised portion = %.3f' % (float(sum(self.unsup)) / len(self.files)))
 
         # transforms
         transform_list = []
