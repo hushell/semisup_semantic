@@ -18,50 +18,58 @@ class CityscapesABDataset(data.Dataset):
         self.dir_A = os.path.join(dataroot, opt.phase + 'A')
         self.dir_B = os.path.join(dataroot, opt.phase + 'B')
 
+        self.heightSize = 256
+        self.widthSize = 256
+        self.n_classes = 20
+        self.ignore_index = 0
+        self.mean = [ 0.485, 0.456, 0.406 ]
+        self.std = [ 0.229, 0.224, 0.225 ]
+
+        # files
         self.A_paths = make_dataset(self.dir_A)
         self.B_paths = make_dataset(self.dir_B)
-
         self.A_paths = sorted(self.A_paths)
         self.B_paths = sorted(self.B_paths)
+
+        self.unsup = np.zeros(self.__len__(), dtype=np.int32)
+        if opt.isTrain and opt.unsup_portion > 0:
+            assert(opt.unsup_portion < opt.portion_total) # e.g., unsup_portion=0: no unsup; unsup_portion=portion_total=10: all unsup
+            tmp = np.concatenate([np.arange(i,self.__len__(),opt.portion_total) for i in range(opt.unsup_portion)])
+            self.unsup[tmp] = 1
+            print('==> unsupervised portion = %.3f' % (float(sum(self.unsup)) / self.__len__()))
 
         # transforms
         transform_list = []
         transform_img = tnt.transform.compose([
+            #lambda x: x[:,:,::-1], # RGB->BGR
             lambda x: x.transpose(2,0,1).astype(np.float32),
             lambda x: torch.from_numpy(x).div_(255.0),
-            torchvision.transforms.Normalize(mean = [ 0.485, 0.456, 0.406 ],
-                                             std = [ 0.229, 0.224, 0.225 ]),
+            torchvision.transforms.Normalize(mean = self.mean, std = self.std),
         ])
 
         transform_target = tnt.transform.compose([
             lambda x: x.astype(np.int32),
             torch.from_numpy,
             lambda x: x.contiguous(),
-            #lambda x: x.view(1,x.size(0), x.size(1)),
+            #lambda x: x.view(1,x.size(0), x.size(1)), # HxW -> 1xHxW
         ])
 
-        # TODO: better transform
-        interp_img = cv2.INTER_LINEAR
-        interp_target = cv2.INTER_NEAREST
         if opt.isTrain:
-            if opt.resize_or_crop == 'resize_and_crop':
-                scale = float(opt.targetSize) / float(max(opt.widthSize, opt.heightSize))
-                transform_list.append(util.Scale(scale, interp_img, interp_target))
+            interp_img = cv2.INTER_LINEAR
+            interp_target = cv2.INTER_NEAREST
+
+            if 'resize' in opt.resize_or_crop:
+                target_scale = float(opt.targetSize) / float(max(opt.widthSize, opt.heightSize))
+                transform_list.append(util.Scale(target_scale, interp_img, interp_target))
+
+            if 'crop' in opt.resize_or_crop:
+                transform_list.append(util.RandomCrop(crop_width=opt.widthSize, crop_height=opt.heightSize))
 
             if not opt.no_flip:
                 transform_list.append(util.RandomFlip())
 
-            if opt.resize_or_crop != 'no_resize':
-                transform_list.append(util.RandomCrop(crop_width=opt.widthSize, crop_height=opt.heightSize))
-
-            transform_list.append(util.ImgTargetTransform(img_transform=transform_img, target_transform=transform_target))
-            self.transform_fun = tnt.transform.compose(transform_list)
-        else:
-            target_scale = 1.0
-            self.transform_fun = tnt.transform.compose([
-                util.Scale(scale=target_scale, interp_img=interp_img, interp_target=interp_target),
-                util.ImgTargetTransform(img_transform=transform_img, target_transform=transform_target),
-            ])
+        transform_list.append(util.ImgTargetTransform(img_transform=transform_img, target_transform=transform_target))
+        self.transform_fun = tnt.transform.compose(transform_list)
 
         # visualization
         cslabels = imp.load_source("",'%s/labels.py' % self.root)
@@ -88,7 +96,7 @@ class CityscapesABDataset(data.Dataset):
 
         A_img, B_img = self.transform_fun((A_img, B_img))
 
-        return {'A': A_img, 'B': B_img,
+        return {'A': A_img, 'B': B_img, 'unsup': self.unsup[index],
                 'A_paths': A_path, 'B_paths': B_path}
 
     def __len__(self):
