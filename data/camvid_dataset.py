@@ -24,6 +24,7 @@ class CamvidDataset(data.Dataset):
 
         # samples
         self.files = os.listdir(root + '/' + self.split)
+
         self.unsup = np.zeros(len(self.files), dtype=np.int32)
         if opt.isTrain and opt.unsup_portion > 0:
             assert(opt.unsup_portion < opt.portion_total) # e.g., unsup_portion=0: no unsup; unsup_portion=portion_total=10: all unsup

@@ -22,12 +22,14 @@ class CycleGANCrossEntTrainer(BaseTrainer):
             self._set_loss()
             self._set_optim(opt)
             self._set_fake_pool()
-            print('------------ Networks initialized -------------')
-            networks.print_network(self.models['G_A'])
-            networks.print_network(self.models['G_B'])
-            print('-----------------------------------------------')
-            networks.print_network(self.models['D_A'])
+            #print('------------ Networks initialized -------------')
+            #networks.print_network(self.models['G_A'])
+            #networks.print_network(self.models['G_B'])
+            #print('-----------------------------------------------')
+            #networks.print_network(self.models['D_A'])
             #networks.print_network(self.models['D_B'])
+
+            self.losses['G_A-CE'] = Variable(torch.from_numpy(np.array([0])))
 
     def _set_model(self, opt):
         self.models['G_A'] = networks.define_G(opt.input_nc, opt.output_nc, opt.ngf, opt.which_model_netG,
