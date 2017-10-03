@@ -7,12 +7,12 @@ from . import networks
 from util.image_pool import ImagePool
 
 
-class AmortStructPercepTrainer(BaseTrainer):
+class AmortCrossEntTrainer(BaseTrainer):
     def name(self):
-        return 'AmortStructPercepTrainer'
+        return 'AmortCrossEntTrainer'
 
     def __init__(self, opt):
-        super(AmortStructPercepTrainer, self).__init__(opt)
+        super(AmortCrossEntTrainer, self).__init__(opt)
 
         self._set_model(opt)
 
@@ -52,26 +52,30 @@ class AmortStructPercepTrainer(BaseTrainer):
         # cross_ent(G_A(A), B)
         self.losses['G_A-CE'] = self.lossfuncs['CE'](self.fake_B, self.real_B)
 
-        # - 1/n || D_B( (A, G_A(A)) ) - D_B(A, B) ||^2
+        # ( CE - D_B(A, G_A(A)) )^2
         fake_pair = torch.cat((self.real_A, self.fake_B), dim=1)
         D_B_fake_pair = self.models['D_B'].forward(fake_pair)
-        D_B_real_pair = self.models['D_B'].forward(self.real_pair)
-        self.losses['G_A-D_B'] = D_B_fake_pair - D_B_real_pair
-        self.losses['G_A-D_B'] = -torch.mean( torch.pow(self.losses['G_A-D_B'], 2) )
+        self.losses['G_A-diff'] = torch.mean( torch.pow(self.losses['G_A-CE'] - D_B_fake_pair, 2) )
 
-        # lambda_B * cross_ent - MSE
-        self.losses['G_A'] = self.losses['G_A-CE'] + self.losses['G_A-D_B']*self.opt.lambda_B
+        # lambda_A * cross_ent + diff^2
+        self.losses['G_A'] = self.losses['G_A-CE'] + self.losses['G_A-diff']*self.opt.lambda_A
         self.losses['G_A'].backward()
 
     def backward_D_B(self):
         self.fake_B = self.models['G_A'].forward(self.real_A) # since G_A has updated
 
+        # cross_ent(G_A(A), B)
+        self.losses['D_B-CE'] = self.lossfuncs['CE'](self.fake_B, self.real_B)
+
         fake_pair = torch.cat((self.real_A, self.fake_B.detach()), dim=1)
         D_B_fake_pair = self.models['D_B'].forward(fake_pair)
-        D_B_real_pair = self.models['D_B'].forward(self.real_pair) # TODO: need this again?
+        D_B_real_pair = self.models['D_B'].forward(self.real_pair)
 
-        self.losses['D_B'] = D_B_fake_pair - D_B_real_pair
-        self.losses['D_B'] = torch.mean( torch.pow(self.losses['D_B'], 2) )
+        self.losses['D_B-diffF'] = torch.mean( torch.pow(self.losses['D_B-CE'] - D_B_fake_pair, 2) )
+        self.losses['D_B-diffR'] = torch.mean( torch.pow(self.losses['D_B-CE'] - D_B_real_pair, 2) )
+
+        # diff_R^2 - lambda_B * diff_F^2
+        self.losses['D_B'] = self.losses['D_B-diffR'] - self.losses['D_B-diffF']*self.opt.lambda_B
         self.losses['D_B'].backward()
 
     def backward(self):
@@ -87,12 +91,17 @@ class AmortStructPercepTrainer(BaseTrainer):
         self.optimizers['D_B'].step()
 
     def on_begin_epoch(self, epoch):
-        if epoch == 100:
-            self.opt.lambda_B = 100
-        elif epoch == 500:
-            self.opt.lambda_B = 1000
-        elif epoch == 800:
-            self.opt.lambda_B = 10000
+        #if epoch > 1 and epoch % 50 == 0:
+        #    self.trainer.opt.lambda_B *= 1e2
+        #if epoch == 1:
+        #    self.opt.lambda_A = 0
+        #    self.opt.lambda_B = 0
+        #elif epoch == 50:
+        #    self.opt.lambda_A = 1
+        #    self.opt.lambda_B = 1
+        #elif epoch == 800:
+        #    self.opt.lambda_B = 10000
+        pass
 
     def compute_real_B_onehot(self):
         opt = self.opt

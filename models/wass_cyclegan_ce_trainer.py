@@ -7,13 +7,16 @@ from . import networks
 from util.image_pool import ImagePool
 
 TAU = 0.9
+N_D_STEPS = 5 # TODO: 100 at beginning and every 500 iters
+CLAMP_LOW = -0.01
+CLAMP_UPP = 0.01
 
-class CycleGANCrossEntTrainer(BaseTrainer):
+class WassCycleGANCrossEntTrainer(BaseTrainer):
     def name(self):
-        return 'CycleGANCrossEntTrainer'
+        return 'WassCycleGANCrossEntTrainer'
 
     def __init__(self, opt):
-        super(CycleGANCrossEntTrainer, self).__init__(opt)
+        super(WassCycleGANCrossEntTrainer, self).__init__(opt)
 
         self._set_model(opt)
 
@@ -22,13 +25,6 @@ class CycleGANCrossEntTrainer(BaseTrainer):
             self._set_loss()
             self._set_optim(opt)
             self._set_fake_pool()
-            #print('------------ Networks initialized -------------')
-            #networks.print_network(self.models['G_A'])
-            #networks.print_network(self.models['G_B'])
-            #print('-----------------------------------------------')
-            #networks.print_network(self.models['D_A'])
-            #networks.print_network(self.models['D_B'])
-
             self.losses['G_A-CE'] = Variable(torch.from_numpy(np.array([0])))
 
     def _set_model(self, opt):
@@ -38,23 +34,17 @@ class CycleGANCrossEntTrainer(BaseTrainer):
             # TODO: G_B outputs an intermediate representation rather than down to A, e.g., bottleneck of G_A
             self.models['G_B'] = networks.define_G(opt.output_nc, opt.input_nc, opt.ngf, opt.which_model_netG,
                                                    opt.norm, opt.use_dropout, self.gpu_ids, 'tanh') # G_B(B)
-            #self.models['D_B'] = networks.define_D(opt.output_nc, opt.ndf, # D_B(B)
-            #                                       opt.which_model_netD,
-            #                                       opt.n_layers_D, opt.norm, opt.gan_type, self.gpu_ids)
             self.models['D_A'] = networks.define_D(opt.input_nc, opt.ndf, # D_A(A)
                                                    opt.which_model_netD, # TODO: use a different netD for D_B
-                                                   opt.n_layers_D, opt.norm, opt.gan_type, self.gpu_ids)
+                                                   opt.n_layers_D, opt.norm, 'wass', self.gpu_ids)
 
     def _set_loss(self):
         self.lossfuncs['CE'] = torch.nn.NLLLoss2d(ignore_index=self.opt.ignore_index)
         self.lossfuncs['L1'] = torch.nn.L1Loss()
-        self.lossfuncs['GAN_A'] = networks.GANLoss(use_lsgan=self.opt.gan_type is 'ls', tensor=self.Tensor) # GAN on A
-        #self.lossfuncs['GAN_B'] = networks.GANLoss(use_lsgan=self.opt.gan_type is 'ls', tensor=self.Tensor) # GAN on B
+
         if len(self.gpu_ids) > 0:
             self.lossfuncs['CE'] = self.lossfuncs['CE'].cuda(self.gpu_ids[0])
             self.lossfuncs['L1'] = self.lossfuncs['L1'].cuda(self.gpu_ids[0])
-            self.lossfuncs['GAN_A'] = self.lossfuncs['GAN_A'].cuda(self.gpu_ids[0])
-            #self.lossfuncs['GAN_B'] = self.lossfuncs['GAN_B'].cuda(self.gpu_ids[0])
 
     def _set_fake_pool(self):
         #self.fake_pool['B'] = ImagePool(self.opt.pool_size)
@@ -66,50 +56,36 @@ class CycleGANCrossEntTrainer(BaseTrainer):
         self.fake_B = self.models['G_A'].forward(self.real_A) # G_A(A)
         self.rec_A = self.models['G_B'].forward(self.fake_B) # G_B(G_A(A))
 
-    def backward_D_basic(self, netD, gan_loss, real, fake):
-        ''' gan_loss: instance of GANLoss
+    def backward_D_A(self, rec_A):
         '''
-        # Real: log( D(real) )
-        pred_real = netD.forward(real) # each element should close to 1 to be real
-        loss_D_real = gan_loss(pred_real, True)
+        -mean_real(D(x)) + mean_fake(D(x))
+        '''
+        # train with real
+        D_A_real = self.models['D_A'].forward(self.real_A)
+        D_A_real = -D_A_real.mean()
+        D_A_real.backward()
 
-        # Fake: log( 1 - D(fake) )
-        pred_fake = netD.forward(fake.detach()) # detach() so back-prop not affect G
-        loss_D_fake = gan_loss(pred_fake, False)
+        # train with fake
+        D_A_fake = self.models['D_A'].forward(rec_A.detach())
+        D_A_fake = D_A_fake.mean()
+        D_A_fake.backward()
 
-        # Combined loss: max_D 1/2 [log D(real) + log (1 - D(fake))]
-        loss_D = (loss_D_real + loss_D_fake) * 0.5
-        return loss_D
-
-    def backward_D_B(self):
-        # self.fake_B = G_A(A), fake_B is self.fake_B with random replacements from fake_B_pool
-        fake_B = self.fake_pool['B'].query(self.fake_B)
-
-        # one-hot real_B (or + noise), dtype=Float
-        self.compute_real_B_onehot(fake_B)
-
-        # D_B(B)
-        self.losses['D_B'] = self.backward_D_basic(self.models['D_B'], self.lossfuncs['GAN_B'],
-                                                   self.real_B_onehot, fake_B)
-        self.losses['D_B'].backward()
-
-    def backward_D_A(self):
-        # TODO: enquery fake_A as well, and input to D_A
-        rec_A = self.fake_pool['A'].query(self.rec_A)
-
-        # D_A(A)
-        self.losses['D_A'] = self.backward_D_basic(self.models['D_A'], self.lossfuncs['GAN_A'],
-                                                   self.real_A, rec_A)
-        self.losses['D_A'].backward()
+        self.losses['D_A'] = D_A_real + D_A_fake
+        #self.losses['D_A'].backward() # TODO: check if can do backward() here
 
     def backward_G_AB(self):
+        '''
+        lbdaA * L1 + lbdaB * CE - mean_fake(D_A(rec))
+        '''
         # TODO: another update for G_B with fake_A
+
+        # -mean_fake( D(G_B(G_A(A))) )
+        minus_D_A_fake = self.models['D_A'].forward(self.rec_A)
+        minus_D_A_fake = -minus_D_A_fake.mean()
+        self.losses['G_A-G_B-GAN'] = minus_D_A_fake
+
         # L1( G_B(G_A(A)), A )
         self.losses['G_A-G_B-L1'] = self.lossfuncs['L1'](self.rec_A, self.real_A)
-
-        # GAN( G_B(G_A(A)), fake )
-        pred_rec = self.models['D_A'].forward(self.rec_A)
-        self.losses['G_A-G_B-GAN'] = self.lossfuncs['GAN_A'](pred_rec, True) * 0.5
 
         # reconstruction loss for A
         self.losses['G_AB'] = self.losses['G_A-G_B-L1']*self.opt.lambda_A + self.losses['G_A-G_B-GAN']
@@ -117,18 +93,23 @@ class CycleGANCrossEntTrainer(BaseTrainer):
         if self.use_real_B:
             # cross_ent(G_A(A), B)
             self.losses['G_A-CE'] = self.lossfuncs['CE'](self.fake_B, self.real_B)
-
-            ## suppose: min_G 1/2 log(1 - D(fake))
-            ## non-saturating: max_G 1/2 log(D(fake)), fake = G_A(A)
-            #pred_fake = self.models['D_B'].forward(self.fake_B) # back-prop will flow fake_B = G_A(A)
-            #self.losses['G_A-GAN'] = self.lossfuncs['GAN_B'](pred_fake, True) * 0.5
-
-            #self.losses['G_AB'] += self.losses['G_A-CE']*self.opt.lambda_B + self.losses['G_A-GAN']
             self.losses['G_AB'] += self.losses['G_A-CE']*self.opt.lambda_B
 
         self.losses['G_AB'].backward()
 
     def backward(self):
+        # D_A
+        for di in range(N_D_STEPS):
+            enqueue_rec_A = self.rec_A if di == 0 else None
+            rec_A = self.fake_pool['A'].query(enqueue_rec_A)
+            self.optimizers['D_A'].zero_grad()
+            self.backward_D_A(rec_A)
+            self.optimizers['D_A'].step()
+
+            # clamp parameters to a cube
+            for p in self.models['D_A'].parameters():
+                p.data.clamp_(CLAMP_LOW, CLAMP_UPP)
+
         # G_A and G_B
         self.optimizers['G_A'].zero_grad()
         self.optimizers['G_B'].zero_grad()
@@ -136,15 +117,6 @@ class CycleGANCrossEntTrainer(BaseTrainer):
         self.optimizers['G_B'].step()
         self.optimizers['G_A'].step()
 
-        ## D_B
-        #self.optimizers['D_B'].zero_grad()
-        #self.backward_D_B()
-        #self.optimizers['D_B'].step()
-
-        # D_A
-        self.optimizers['D_A'].zero_grad()
-        self.backward_D_A()
-        self.optimizers['D_A'].step()
 
     def compute_real_B_onehot(self, fake_B):
         if not self.opt.gt_noise:
