@@ -158,21 +158,24 @@ def CreateTrainer(opt):
     elif opt.loss == 'cycle_gan_ce':
         from .cyclegan_ce_trainer import CycleGANCrossEntTrainer
         trainer = CycleGANCrossEntTrainer(opt)
-    elif opt.loss == 'symm_gan_ce':
-        from .symmetric_gan_trainer import SymmetricGANCETrainer
-        trainer = SymmetricGANCETrainer(opt)
+    elif opt.loss == 'wass_cycle_gan_ce':
+        from .wass_cyclegan_ce_trainer import WassCycleGANCrossEntTrainer
+        trainer = WassCycleGANCrossEntTrainer(opt)
+    #elif opt.loss == 'symm_gan_ce':
+    #    from .symmetric_gan_trainer import SymmetricGANCETrainer
+    #    trainer = SymmetricGANCETrainer(opt)
     elif opt.loss == 'asp':
         from .amortized_struct_percep_trainer import AmortStructPercepTrainer
         trainer = AmortStructPercepTrainer(opt)
-    elif opt.loss == 'assvm':
-        from .amortized_struct_svm_trainer import AmortStructSVMTrainer
-        trainer = AmortStructSVMTrainer(opt)
-    elif opt.loss == 'ebgan':
-        from .amortized_struct_ebgan_trainer import AmortStructEBGANTrainer
-        trainer = AmortStructEBGANTrainer(opt)
-    elif opt.loss == 'ace':
-        from .amortized_cross_ent_trainer import AmortCrossEntTrainer
-        trainer = AmortCrossEntTrainer(opt)
+    #elif opt.loss == 'assvm':
+    #    from .amortized_struct_svm_trainer import AmortStructSVMTrainer
+    #    trainer = AmortStructSVMTrainer(opt)
+    #elif opt.loss == 'ebgan':
+    #    from .amortized_struct_ebgan_trainer import AmortStructEBGANTrainer
+    #    trainer = AmortStructEBGANTrainer(opt)
+    #elif opt.loss == 'ace':
+    #    from .amortized_cross_ent_trainer import AmortCrossEntTrainer
+    #    trainer = AmortCrossEntTrainer(opt)
     else:
         raise ValueError("trainer [%s] not recognized." % opt.loss)
     #trainer.initialize(opt)

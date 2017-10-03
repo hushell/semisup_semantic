@@ -38,10 +38,9 @@ class AmortStructEBGANTrainer(BaseTrainer):
             self.models['G_A'].load_state_dict(state)
 
         if self.isTrain:
-            use_sigmoid = opt.no_lsgan
             self.models['D_B'] = networks.define_D(opt.output_nc+opt.input_nc, opt.ndf, # D_B( (A,B) )
                                                    opt.which_model_netD,
-                                                   opt.n_layers_D, opt.norm, use_sigmoid, self.gpu_ids)
+                                                   opt.n_layers_D, opt.norm, opt.gan_type, self.gpu_ids)
 
     def _set_loss(self):
         self.lossfuncs['CE'] = torch.nn.NLLLoss2d()

@@ -31,14 +31,13 @@ class GANCrossEntTrainer(BaseTrainer):
         self.models['G_A'] = networks.define_G(opt.input_nc, opt.output_nc, opt.ngf, opt.which_model_netG,
                                                opt.norm, opt.use_dropout, self.gpu_ids, 'softmax') # G_A(A)
         if self.isTrain:
-            use_sigmoid = opt.no_lsgan
             self.models['D_B'] = networks.define_D(opt.output_nc, opt.ndf, # D_B(B)
                                                    opt.which_model_netD,
-                                                   opt.n_layers_D, opt.norm, use_sigmoid, self.gpu_ids)
+                                                   opt.n_layers_D, opt.norm, opt.gan_type, self.gpu_ids)
 
     def _set_loss(self):
         self.lossfuncs['CE'] = torch.nn.NLLLoss2d(ignore_index=self.opt.ignore_index)
-        self.lossfuncs['GAN_B'] = networks.GANLoss(use_lsgan=not self.opt.no_lsgan, tensor=self.Tensor) # GAN on B
+        self.lossfuncs['GAN_B'] = networks.GANLoss(use_lsgan=self.opt.gan_type is 'ls', tensor=self.Tensor) # GAN on B
         if len(self.gpu_ids) > 0:
             self.lossfuncs['CE'] = self.lossfuncs['CE'].cuda(self.gpu_ids[0])
             self.lossfuncs['GAN_B'] = self.lossfuncs['GAN_B'].cuda(self.gpu_ids[0])

@@ -62,7 +62,7 @@ def define_G(input_nc, output_nc, ngf, which_model_netG, norm='batch', use_dropo
 
 
 def define_D(input_nc, ndf, which_model_netD,
-             n_layers_D=3, norm='batch', use_sigmoid=False, gpu_ids=[]):
+             n_layers_D=3, norm='batch', gan_type='ls', gpu_ids=[]):
     netD = None
     use_gpu = len(gpu_ids) > 0
     norm_layer = get_norm_layer(norm_type=norm)
@@ -70,9 +70,9 @@ def define_D(input_nc, ndf, which_model_netD,
     if use_gpu:
         assert(torch.cuda.is_available())
     if which_model_netD == 'basic':
-        netD = NLayerDiscriminator(input_nc, ndf, n_layers=3, norm_layer=norm_layer, use_sigmoid=use_sigmoid, gpu_ids=gpu_ids)
+        netD = NLayerDiscriminator(input_nc, ndf, n_layers=3, norm_layer=norm_layer, gan_type=gan_type, gpu_ids=gpu_ids)
     elif which_model_netD == 'n_layers':
-        netD = NLayerDiscriminator(input_nc, ndf, n_layers_D, norm_layer=norm_layer, use_sigmoid=use_sigmoid, gpu_ids=gpu_ids)
+        netD = NLayerDiscriminator(input_nc, ndf, n_layers_D, norm_layer=norm_layer, gan_type=gan_type, gpu_ids=gpu_ids)
     else:
         print('Discriminator model name [%s] is not recognized' %
               which_model_netD)
@@ -94,10 +94,11 @@ def print_network(net):
 # Discriminators
 ##############################################################################
 
-# Defines the PatchGAN discriminator with the specified arguments.
+# JSDGAN, LSGAN use PatchGAN discriminator
 class NLayerDiscriminator(nn.Module):
-    def __init__(self, input_nc, ndf=64, n_layers=3, norm_layer=nn.BatchNorm2d, use_sigmoid=False, gpu_ids=[]):
+    def __init__(self, input_nc, ndf=64, n_layers=3, norm_layer=nn.BatchNorm2d, gan_type='ls', gpu_ids=[]):
         super(NLayerDiscriminator, self).__init__()
+        self.gan_type = gan_type
         self.gpu_ids = gpu_ids
 
         kw = 4
@@ -115,7 +116,6 @@ class NLayerDiscriminator(nn.Module):
             sequence += [
                 nn.Conv2d(ndf * nf_mult_prev, ndf * nf_mult,
                                 kernel_size=kw, stride=2, padding=padw),
-                # TODO: use InstanceNorm
                 norm_layer(ndf * nf_mult, affine=True),
                 nn.LeakyReLU(0.2, True)
             ]
@@ -125,23 +125,26 @@ class NLayerDiscriminator(nn.Module):
         sequence += [
             nn.Conv2d(ndf * nf_mult_prev, ndf * nf_mult,
                             kernel_size=kw, stride=1, padding=padw),
-            # TODO: useInstanceNorm
             norm_layer(ndf * nf_mult, affine=True),
             nn.LeakyReLU(0.2, True)
         ]
 
         sequence += [nn.Conv2d(ndf * nf_mult, 1, kernel_size=kw, stride=1, padding=padw)]
 
-        if use_sigmoid:
+        if self.gan_type is 'jsd':
             sequence += [nn.Sigmoid()]
 
         self.model = nn.Sequential(*sequence)
 
     def forward(self, input):
-        if len(self.gpu_ids)  and isinstance(input.data, torch.cuda.FloatTensor):
-            return nn.parallel.data_parallel(self.model, input, self.gpu_ids)
+        if len(self.gpu_ids) and isinstance(input.data, torch.cuda.FloatTensor):
+            output = nn.parallel.data_parallel(self.model, input, self.gpu_ids)
         else:
-            return self.model(input)
+            output = self.model(input)
+
+        #if self.gan_type is 'wass':
+        #    output = output.mean(0).view(1)
+        return output
 
 
 ##############################################################################

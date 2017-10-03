@@ -32,18 +32,17 @@ class SymmetricGANCETrainer(BaseTrainer):
         self.models['G_A'] = networks.define_G(opt.input_nc, opt.output_nc, opt.ngf, opt.which_model_netG,
                                                opt.norm, opt.use_dropout, self.gpu_ids, 'softmax') # G_A(A)
         if self.isTrain:
-            use_sigmoid = opt.no_lsgan
             # TODO: G_B outputs an intermediate representation rather than down to A, e.g., bottleneck of G_A
             self.models['G_B'] = networks.define_G(opt.output_nc, opt.input_nc, opt.ngf, opt.which_model_netG,
                                                    opt.norm, opt.use_dropout, self.gpu_ids, 'tanh') # G_B(B)
             self.models['D_A'] = networks.define_D(opt.input_nc, opt.ndf, # D_A(A)
                                                    opt.which_model_netD, # TODO: use a different netD for D_B
-                                                   opt.n_layers_D, opt.norm, use_sigmoid, self.gpu_ids)
+                                                   opt.n_layers_D, opt.norm, opt.gan_type, self.gpu_ids)
 
     def _set_loss(self):
         self.lossfuncs['CE'] = torch.nn.NLLLoss2d(ignore_index=self.opt.ignore_index)
         self.lossfuncs['L1'] = torch.nn.L1Loss()
-        self.lossfuncs['GAN_A'] = networks.GANLoss(use_lsgan=not self.opt.no_lsgan, tensor=self.Tensor) # GAN on A
+        self.lossfuncs['GAN_A'] = networks.GANLoss(use_lsgan=self.opt.gan_type is 'ls', tensor=self.Tensor) # GAN on A
         if len(self.gpu_ids) > 0:
             self.lossfuncs['CE'] = self.lossfuncs['CE'].cuda(self.gpu_ids[0])
             self.lossfuncs['L1'] = self.lossfuncs['L1'].cuda(self.gpu_ids[0])
