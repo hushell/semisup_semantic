@@ -63,15 +63,15 @@ class WassCycleGANCrossEntTrainer(BaseTrainer):
         # train with real
         D_A_real = self.models['D_A'].forward(self.real_A)
         D_A_real = -D_A_real.mean()
-        #D_A_real.backward()
+        D_A_real.backward()
 
         # train with fake
         D_A_fake = self.models['D_A'].forward(rec_A.detach())
         D_A_fake = D_A_fake.mean()
-        #D_A_fake.backward()
+        D_A_fake.backward()
 
         self.losses['D_A'] = D_A_real + D_A_fake
-        self.losses['D_A'].backward() # TODO: check if can do backward() here
+        #self.losses['D_A'].backward() # NOTE: we can do backward() here, but will use more MEM
 
     def backward_G_AB(self):
         '''
