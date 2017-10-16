@@ -24,5 +24,9 @@
   "cityscapesAB":
   {
     "data_path": "./datasets/cityscapes_AB/"
+  },
+  "horse":
+  {
+    "data_path": "./datasets/horse_32x32/"
   }
 }
