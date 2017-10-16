@@ -73,6 +73,9 @@ def CreateDataset(opt):
     elif opt.dataset == 'camvid':
         from .camvid_dataset import CamvidDataset
         dataset = CamvidDataset(data_path, opt)
+    elif opt.dataset == 'horse':
+        from .horse_dataset import HorseDataset
+        dataset = HorseDataset(data_path, opt)
     else:
         raise ValueError("Dataset [%s] not recognized." % opt.dataset)
 
