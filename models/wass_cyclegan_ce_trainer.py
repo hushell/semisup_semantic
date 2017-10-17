@@ -2,6 +2,7 @@ import numpy as np
 import torch
 import os
 from torch.autograd import Variable
+from torch.autograd import grad
 from .trainer import BaseTrainer
 from . import networks
 from util.image_pool import ImagePool
@@ -10,6 +11,7 @@ TAU = 0.9
 N_D_STEPS = 5 # TODO: 100 at beginning and every 500 iters
 CLAMP_LOW = -0.01
 CLAMP_UPP = 0.01
+LAMBDA = 10 # Gradient penalty lambda hyperparameter
 
 class WassCycleGANCrossEntTrainer(BaseTrainer):
     def name(self):
@@ -66,11 +68,19 @@ class WassCycleGANCrossEntTrainer(BaseTrainer):
         D_A_real.backward()
 
         # train with fake
-        D_A_fake = self.models['D_A'].forward(rec_A.detach())
+        detached_rec_A = rec_A.detach()
+        D_A_fake = self.models['D_A'].forward(detached_rec_A)
         D_A_fake = D_A_fake.mean()
         D_A_fake.backward()
 
+        # train with gradient penalty
+        if self.opt.gan_type == 'wassgp':
+            gradient_penalty = self.calc_gradient_penalty(self.real_A.data, detached_rec_A.data)
+            gradient_penalty.backward()
+
         self.losses['D_A'] = D_A_real + D_A_fake
+        if self.opt.gan_type == 'wassgp':
+            self.losses['D_A'] = self.losses['D_A'] + gradient_penalty
         #self.losses['D_A'].backward() # NOTE: we can do backward() here, but will use more MEM
 
     def backward_G_AB(self):
@@ -107,8 +117,9 @@ class WassCycleGANCrossEntTrainer(BaseTrainer):
             self.optimizers['D_A'].step()
 
             # clamp parameters to a cube
-            for p in self.models['D_A'].parameters():
-                p.data.clamp_(CLAMP_LOW, CLAMP_UPP)
+            if self.opt.gan_type is not 'wassgp':
+                for p in self.models['D_A'].parameters():
+                    p.data.clamp_(CLAMP_LOW, CLAMP_UPP)
 
         # G_A and G_B
         self.optimizers['G_A'].zero_grad()
@@ -117,6 +128,29 @@ class WassCycleGANCrossEntTrainer(BaseTrainer):
         self.optimizers['G_B'].step()
         self.optimizers['G_A'].step()
 
+    def calc_gradient_penalty(self, real_data, fake_data):
+        # print "real_data: ", real_data.size(), fake_data.size()
+        batchSize = self.opt.batchSize
+        use_cuda = len(self.gpu_ids) > 0
+
+        alpha = torch.rand(batchSize, 1)
+        alpha = alpha.expand(batchSize, real_data.nelement()/batchSize).contiguous().view(self.real_A.size())
+        alpha = alpha.cuda(self.gpu_ids[0]) if use_cuda else alpha
+
+        interpolates = alpha * real_data + ((1 - alpha) * fake_data)
+        if use_cuda > 0:
+            interpolates = interpolates.cuda(self.gpu_ids[0])
+        interpolates = Variable(interpolates, requires_grad=True)
+
+        disc_interpolates = self.models['D_A'](interpolates)
+
+        gradients = grad(outputs=disc_interpolates, inputs=interpolates,
+                         grad_outputs=torch.ones(disc_interpolates.size()).cuda(self.gpu_ids[0]) if use_cuda
+                             else torch.ones(disc_interpolates.size()),
+                         create_graph=True, retain_graph=True, only_inputs=True)[0]
+
+        gradient_penalty = ((gradients.norm(2, dim=1) - 1) ** 2).mean() * LAMBDA
+        return gradient_penalty
 
     def compute_real_B_onehot(self, fake_B):
         if not self.opt.gt_noise:
