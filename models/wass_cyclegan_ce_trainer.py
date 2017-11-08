@@ -58,20 +58,22 @@ class WassCycleGANCrossEntTrainer(BaseTrainer):
         self.fake_B = self.models['G_A'].forward(self.real_A) # G_A(A)
         self.rec_A = self.models['G_B'].forward(self.fake_B) # G_B(G_A(A))
 
-    def backward_D_A(self, rec_A):
+    def backward_D_A(self, rec_A, eval_mode=False):
         '''
         -mean_real(D(x)) + mean_fake(D(x))
         '''
         # train with real
         D_A_real = self.models['D_A'].forward(self.real_A)
         D_A_real = -D_A_real.mean()
-        D_A_real.backward()
+        if not eval_mode:
+            D_A_real.backward()
 
         # train with fake
         detached_rec_A = rec_A.detach()
         D_A_fake = self.models['D_A'].forward(detached_rec_A)
         D_A_fake = D_A_fake.mean()
-        D_A_fake.backward()
+        if not eval_mode:
+            D_A_fake.backward()
 
         # train with gradient penalty
         if self.opt.gan_type == 'wassgp':
@@ -83,7 +85,7 @@ class WassCycleGANCrossEntTrainer(BaseTrainer):
             self.losses['D_A'] = self.losses['D_A'] + gradient_penalty
         #self.losses['D_A'].backward() # NOTE: we can do backward() here, but will use more MEM
 
-    def backward_G_AB(self):
+    def backward_G_AB(self, eval_mode=False):
         '''
         lbdaA * L1 + lbdaB * CE - mean_fake(D_A(rec))
         '''
@@ -105,7 +107,8 @@ class WassCycleGANCrossEntTrainer(BaseTrainer):
             self.losses['G_A-CE'] = self.lossfuncs['CE'](self.fake_B, self.real_B)
             self.losses['G_AB'] += self.losses['G_A-CE']*self.opt.lambda_B
 
-        self.losses['G_AB'].backward()
+        if not eval_mode:
+            self.losses['G_AB'].backward()
 
     def backward(self):
         # D_A
