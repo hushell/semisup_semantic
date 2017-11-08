@@ -66,7 +66,7 @@ def CreateDataset(opt):
     data_path = get_data_path(opt.dataset)
     if opt.dataset == 'pascal':
         from .pascal_voc_dataset import PascalVOCDataset
-        dataset = PascalVOCDataset(data_path, is_transform=True, img_size=(opt.heightSize, opt.widthSize))
+        dataset = PascalVOCDataset(data_path, opt))
     elif opt.dataset == 'cityscapesAB':
         from .cityscapesAB_dataset import CityscapesABDataset
         dataset = CityscapesABDataset(data_path, opt)
