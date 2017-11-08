@@ -72,7 +72,7 @@ for epoch in range(begin_epoch, opt.niter+opt.niter_decay+1):
 
         # plot images
         if total_steps % opt.display_freq == 0:
-            expmgr.plot_current_images(epoch, i, do_save=False)
+            expmgr.plot_current_images(epoch, i, do_save=0)
 
         # plot metrics
         if total_steps % opt.print_freq == 0:
@@ -80,7 +80,7 @@ for epoch in range(begin_epoch, opt.niter+opt.niter_decay+1):
 
     # on end epoch
     expmgr.on_end_epoch(epoch)
-    expmgr.plot_current_images(epoch, i, do_save=True)
+    expmgr.plot_current_images(epoch, i, do_save=2)
     msg = '===> End of epoch %d / %d \t Time Taken: %.2f sec\n' % \
                 (epoch, opt.niter+opt.niter_decay, time.time() - epoch_start_time)
 
@@ -103,3 +103,4 @@ for epoch in range(begin_epoch, opt.niter+opt.niter_decay+1):
 
 # on end training
 expmgr.save_history()
+visualizer.save_webpage(prefix='train')

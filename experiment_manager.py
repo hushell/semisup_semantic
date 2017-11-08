@@ -79,7 +79,7 @@ class ExperimentManager():
 
         self.trainer.old_lr = self.trainer.optimizers['G_A'].param_groups[0]['lr'] / self.trainer.lr_coeffs['G_A']
 
-    def plot_current_images(self, epoch, i, do_save=False):
+    def plot_current_images(self, epoch, i, subset='train', do_save=0):
         images = self.trainer.get_current_visuals()
         for k, im in images.items():
             if 'B' in k:
@@ -94,7 +94,7 @@ class ExperimentManager():
                 images[k] += d_mean
                 images[k] *= 255.0
                 images[k] = images[k].astype(np.uint8)
-        self.visualizer.display_current_results(images, epoch, i, do_save=do_save)
+        self.visualizer.display_current_results(images, epoch, i, subset=subset, do_save=do_save)
 
     def print_plot_current_losses(self, epoch, total_i, t):
         losses = self.trainer.get_current_losses()
@@ -112,8 +112,13 @@ class ExperimentManager():
             pred, gt = self.trainer.get_eval_pair()
             eval_stats.update_confmat(gt, pred)
 
-            if phase is 'test': # save images only in testing
-                self.plot_current_images(9999, i, do_save=True)
+            if phase is 'test':
+                do_save = 2 if i < 10 else 1
+            elif phase is 'val':
+                do_save = 2 if i < 3 else 0
+            else:
+                do_save = 0
+            self.plot_current_images(9999, i, subset=phase, do_save=do_save)
 
         eval_results = eval_stats.get_eval_results()
         msg = '==> %s Results [%d images] \t Time Taken: %.2f sec: %s\n' % \
@@ -124,6 +129,9 @@ class ExperimentManager():
         print(msg)
         with open(self.visualizer.log_name, "a") as log_file:
             log_file.write('%s' % msg)
+
+        if phase is 'test':
+            self.visualizer.save_webpage(prefix='test')
 
         self.trainer.train(mode=True)
         return eval_results[0]['Mean IoU']

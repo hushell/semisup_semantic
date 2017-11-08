@@ -4,15 +4,16 @@ import os
 
 
 class HTML:
-    def __init__(self, web_dir, title, reflesh=0):
+    def __init__(self, web_dir, prefix, title, reflesh=0):
         self.title = title
         self.web_dir = web_dir
-        self.img_dir = os.path.join(self.web_dir, 'images')
+        self.prefix = prefix
+        self.img_dir = os.path.join(self.web_dir, prefix)
         if not os.path.exists(self.web_dir):
             os.makedirs(self.web_dir)
         if not os.path.exists(self.img_dir):
             os.makedirs(self.img_dir)
-        # print(self.img_dir)
+        #print(self.img_dir)
 
         self.doc = dominate.document(title=title)
         if reflesh > 0:
@@ -37,20 +38,20 @@ class HTML:
                 for im, txt, link in zip(ims, txts, links):
                     with td(style="word-wrap: break-word;", halign="center", valign="top"):
                         with p():
-                            with a(href=os.path.join('images', link)):
-                                img(style="width:%dpx" % width, src=os.path.join('images', im))
+                            with a(href=os.path.join(self.prefix, link)):
+                                img(style="width:%dpx" % width, src=os.path.join(self.prefix, im))
                             br()
                             p(txt)
 
     def save(self):
-        html_file = '%s/index.html' % self.web_dir
+        html_file = '%s/%s_index.html' % (self.web_dir, self.prefix)
         f = open(html_file, 'wt')
         f.write(self.doc.render())
         f.close()
 
 
 if __name__ == '__main__':
-    html = HTML('web/', 'test_html')
+    html = HTML('web/', 'images', 'test_html')
     html.add_header('hello world')
 
     ims = []
