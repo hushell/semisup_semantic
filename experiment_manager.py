@@ -84,16 +84,21 @@ class ExperimentManager():
         for k, im in images.items():
             if 'B' in k:
                 images[k] = util.tensor2lab(im, self.data_loader['train'].dataset.label2color)
-            else:
-                images[k] = util.tensor2im(im, imtype=np.float32)
-                d_mean = np.array(self.data_loader['train'].dataset.mean)
-                d_std = np.array(self.data_loader['train'].dataset.std)
-                d_mean = d_mean[:,np.newaxis,np.newaxis]
-                d_std = d_std[:,np.newaxis,np.newaxis]
+            elif 'A' in k:
+                #images[k] = util.tensor2im(im, imtype=np.float32)
+                images[k] = im[0]
+                #images[k] = np.clip(images[k], 0.0, 1.0)
+                #images[k] = (images[k] + 1.0) / 2.0 # (im - min) / (max - min)
+                #d_mean = np.array(self.data_loader['train'].dataset.mean)
+                #d_std = np.array(self.data_loader['train'].dataset.std)
+                #d_mean = d_mean[:,np.newaxis,np.newaxis]
+                #d_std = d_std[:,np.newaxis,np.newaxis]
+                d_mean = torch.FloatTensor(self.data_loader['train'].dataset.mean).unsqueeze(1).unsqueeze(2)
+                d_std = torch.FloatTensor(self.data_loader['train'].dataset.std).unsqueeze(1).unsqueeze(2)
                 images[k] *= d_std
                 images[k] += d_mean
-                images[k] *= 255.0
-                images[k] = images[k].astype(np.uint8)
+                #images[k] *= 255.0
+                #images[k] = images[k].astype(np.uint8)
         self.visualizer.display_current_results(images, epoch, i, subset=subset, do_save=do_save)
 
     def print_plot_current_losses(self, epoch, total_i, t):
