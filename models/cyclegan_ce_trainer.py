@@ -48,7 +48,7 @@ class CycleGANCrossEntTrainer(BaseTrainer):
     def _set_loss(self):
         self.lossfuncs['CE'] = torch.nn.NLLLoss2d(ignore_index=self.opt.ignore_index)
         self.lossfuncs['L1'] = torch.nn.L1Loss()
-        self.lossfuncs['GAN_A'] = networks.GANLoss(use_lsgan=self.opt.gan_type is 'ls', tensor=self.Tensor) # GAN on A
+        self.lossfuncs['GAN_A'] = networks.GANLoss(use_lsgan=self.opt.gan_type == 'ls', tensor=self.Tensor) # GAN on A
         #self.lossfuncs['GAN_B'] = networks.GANLoss(use_lsgan=self.opt.gan_type is 'ls', tensor=self.Tensor) # GAN on B
         if len(self.gpu_ids) > 0:
             self.lossfuncs['CE'] = self.lossfuncs['CE'].cuda(self.gpu_ids[0])

@@ -23,7 +23,8 @@ class CityscapesABDataset(data.Dataset):
         self.n_classes = 20
         self.ignore_index = 0
         self.mean = [ 0.485, 0.456, 0.406 ]
-        self.std = [ 0.229, 0.224, 0.225 ]
+        #self.std = [ 0.229, 0.224, 0.225 ]
+        self.std = [ 1.0, 1.0, 1.0 ]
 
         # files
         self.A_paths = make_dataset(self.dir_A)
@@ -33,7 +34,7 @@ class CityscapesABDataset(data.Dataset):
 
         self.unsup = np.zeros(self.__len__(), dtype=np.int32)
         if opt.isTrain and opt.unsup_portion > 0:
-            assert(opt.unsup_portion < opt.portion_total) # e.g., unsup_portion=0: no unsup; unsup_portion=portion_total=10: all unsup
+            assert(opt.unsup_portion <= opt.portion_total) # e.g., unsup_portion=0: no unsup; unsup_portion=portion_total=10: all unsup
             tmp = np.concatenate([np.arange(i,self.__len__(),opt.portion_total) for i in range(opt.unsup_portion)])
             self.unsup[tmp] = 1
             print('==> unsupervised portion = %.3f' % (float(sum(self.unsup)) / self.__len__()))
