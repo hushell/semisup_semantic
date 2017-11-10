@@ -79,10 +79,10 @@ for epoch in range(begin_epoch, opt.niter+opt.niter_decay+1):
             expmgr.print_plot_current_losses(epoch, total_steps, t)
 
     # on end epoch
-    expmgr.on_end_epoch(epoch)
-    expmgr.plot_current_images(epoch, i, do_save=2)
     msg = '===> End of epoch %d / %d \t Time Taken: %.2f sec\n' % \
                 (epoch, opt.niter+opt.niter_decay, time.time() - epoch_start_time)
+    expmgr.on_end_epoch(epoch)
+    expmgr.plot_current_images(epoch, i, do_save=2) # save one TRAIN image at the end of epoch
 
     # evaluation & save
     if epoch % opt.save_epoch_freq == 0:
@@ -101,6 +101,7 @@ for epoch in range(begin_epoch, opt.niter+opt.niter_decay+1):
     with open(visualizer.log_name, "a") as log_file:
         log_file.write('%s' % msg)
 
+    visualizer.save_webpage(prefix='train') # visualizer maintains a img_dict to be saved in webpage
+
 # on end training
 expmgr.save_history()
-visualizer.save_webpage(prefix='train')

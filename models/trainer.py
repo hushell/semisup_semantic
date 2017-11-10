@@ -126,7 +126,7 @@ class BaseTrainer(object):
 
     def get_eval_pair(self):
         logits      = self.fake_B.data.cpu().numpy()
-        predictions = logits.argmax(1) # NCHW
+        predictions = logits.argmax(1) # NCHW -> NHW
         groundtruth = self.real_B.data.cpu().numpy()
         return predictions, groundtruth
 
