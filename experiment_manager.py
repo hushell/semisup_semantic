@@ -83,22 +83,23 @@ class ExperimentManager():
         images = self.trainer.get_current_visuals()
         for k, im in images.items():
             if 'B' in k:
-                images[k] = util.tensor2lab(im, self.data_loader['train'].dataset.label2color)
+                images[k] = util.tensor2lab(im, self.data_loader['train'].dataset.label2color) # 3HW
             elif 'A' in k:
                 #images[k] = util.tensor2im(im, imtype=np.float32)
-                images[k] = im[0]
+                images[k] = im[0] # 3HW
                 #images[k] = np.clip(images[k], 0.0, 1.0)
                 #images[k] = (images[k] + 1.0) / 2.0 # (im - min) / (max - min)
                 #d_mean = np.array(self.data_loader['train'].dataset.mean)
                 #d_std = np.array(self.data_loader['train'].dataset.std)
                 #d_mean = d_mean[:,np.newaxis,np.newaxis]
                 #d_std = d_std[:,np.newaxis,np.newaxis]
-                d_mean = torch.FloatTensor(self.data_loader['train'].dataset.mean).unsqueeze(1).unsqueeze(2)
-                d_std = torch.FloatTensor(self.data_loader['train'].dataset.std).unsqueeze(1).unsqueeze(2)
+                d_mean = torch.FloatTensor(self.data_loader['train'].dataset.mean).view(-1,1,1) # (3) -> (3,1,1)
+                d_std = torch.FloatTensor(self.data_loader['train'].dataset.std).view(-1,1,1)
                 images[k] *= d_std
                 images[k] += d_mean
                 #images[k] *= 255.0
                 #images[k] = images[k].astype(np.uint8)
+                images[k] = images[k].mul(255).clamp(0,255).byte().numpy() # 3HW
         self.visualizer.display_current_results(images, epoch, i, subset=subset, do_save=do_save)
 
     def print_plot_current_losses(self, epoch, total_i, t):
@@ -118,11 +119,11 @@ class ExperimentManager():
             eval_stats.update_confmat(gt, pred)
 
             if phase is 'test':
-                do_save = 2 if i < 10 else 1
+                do_save = 2 if i < 10 else 1 # TEST: save image to webpage for i < 10
             elif phase is 'val':
-                do_save = 2 if i < 3 else 0
+                do_save = 2 if i < 3 else 0 # VAL: save image to webpage for i < 3
             else:
-                do_save = 0
+                do_save = 0 # TRAIN: no save
             self.plot_current_images(9999, i, subset=phase, do_save=do_save)
 
         eval_results = eval_stats.get_eval_results()
@@ -135,7 +136,7 @@ class ExperimentManager():
         with open(self.visualizer.log_name, "a") as log_file:
             log_file.write('%s' % msg)
 
-        if phase is 'test':
+        if phase is 'test': # TEST only eval once so save webpage immediately
             self.visualizer.save_webpage(prefix='test')
 
         self.trainer.train(mode=True)
