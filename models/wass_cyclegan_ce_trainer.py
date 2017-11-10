@@ -190,10 +190,10 @@ class WassCycleGANCrossEntTrainer(BaseTrainer):
 
     def get_current_visuals(self):
         (pred, gt) = self.get_eval_pair()
-        res = {'real_A': self.real_A.data.cpu().float().numpy(),
+        res = {'real_A': self.real_A.data.cpu(),
                 'real_B': gt, 'fake_B': pred}
         if hasattr(self, 'rec_A'):
-            res['rec_A'] = self.rec_A.data.cpu().float().numpy()
+            res['rec_A'] = self.rec_A.data.cpu()
         return res
 
     def test(self, phase='train'):

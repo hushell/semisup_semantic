@@ -48,4 +48,4 @@ class CrossEntropyTrainer(BaseTrainer):
 
     def get_current_visuals(self):
         (pred, gt) = self.get_eval_pair()
-        return {'real_A': self.real_A.data.cpu().float().numpy(), 'real_B': gt, 'fake_B': pred}
+        return {'real_A': self.real_A.data.cpu(), 'real_B': gt, 'fake_B': pred}

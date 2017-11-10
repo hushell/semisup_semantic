@@ -5,6 +5,7 @@ import time
 from . import util
 from . import html
 from collections import OrderedDict
+import torchvision.utils as vutils
 
 class Visualizer():
     def __init__(self, opt):
@@ -47,7 +48,10 @@ class Visualizer():
             for label, image_numpy in visuals.items():
                 image_name = '%s_%s.png' % (key, label)
                 img_path = os.path.join(self.res_dir, subset, image_name)
-                util.save_image(image_numpy.transpose((1,2,0)), img_path)
+                if 'B' in label:
+                    util.save_image(image_numpy.transpose((1,2,0)), img_path)
+                else:
+                    vutils.save_image(image_numpy.unsqueeze(0), img_path, normalize=False)
                 if do_save > 1:
                     self.img_dict.setdefault(key, {})
                     self.img_dict[key][label] = img_path
