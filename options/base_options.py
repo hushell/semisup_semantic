@@ -58,7 +58,7 @@ class BaseOptions():
         if not self.initialized:
             self.initialize()
         self.opt = self.parser.parse_args()
-        self.opt.isTrain = self.isTrain   # train or test
+        self.opt.isTrain = True if self.opt.phase == 'train' else False
         self.opt.name += '_%s_%s_%s_netD%d_b%d' % (self.opt.dataset, self.opt.loss, self.opt.which_model_netG, \
                                                    self.opt.n_layers_D, self.opt.batchSize)
         self.opt.nThreads = max(self.opt.batchSize / 2, self.opt.nThreads)
@@ -73,8 +73,8 @@ class BaseOptions():
         # save to the disk
         expr_dir = os.path.join(self.opt.checkpoints_dir, self.opt.name)
         util.mkdirs(expr_dir)
-        file_name = os.path.join(expr_dir, 'opt_%s.txt' % ('train' if self.isTrain else 'test'))
-        with open(file_name, 'wt') as opt_file:
+        file_name = os.path.join(expr_dir, 'opt_%s.txt' % (self.opt.phase))
+        with open(file_name, 'a') as opt_file:
             opt_file.write('------------ Options -------------\n')
             for k, v in sorted(args.items()):
                 opt_file.write('%s: %s\n' % (str(k), str(v)))

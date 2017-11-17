@@ -14,11 +14,11 @@ class BaseTrainer(object):
     def __init__(self, opt):
         self.opt = opt
         self.gpu_ids = opt.gpu_ids
-        self.isTrain = opt.isTrain
+        self.isTrain = True if opt.phase == 'train' else False
         self.Tensor = torch.cuda.FloatTensor if self.gpu_ids else torch.Tensor
         if self.gpu_ids:
             self.input_A = torch.cuda.FloatTensor(opt.batchSize, opt.input_nc, opt.heightSize, opt.widthSize)
-            self.input_B = torch.cuda.LongTensor(opt.batchSize, opt.output_nc, opt.heightSize, opt.widthSize) # TODO: dim_1 = 1
+            self.input_B = torch.cuda.LongTensor(opt.batchSize, opt.output_nc, opt.heightSize, opt.widthSize)
         else:
             self.input_A = torch.FloatTensor(opt.batchSize, opt.input_nc, opt.heightSize, opt.widthSize)
             self.input_B = torch.LongTensor(opt.batchSize, opt.output_nc, opt.heightSize, opt.widthSize)
@@ -64,23 +64,35 @@ class BaseTrainer(object):
     def _set_fake_pool(self):
         pass
 
-    def set_input(self, input):
+    def set_input(self, input, additional=None):
+        ''' if additional provided, input_B from additional
+        '''
         AtoB = self.opt.which_direction == 'AtoB'
+
+        # input_A
         input_A = input['A' if AtoB else 'B']
-        input_B = input['B' if AtoB else 'A']
         self.input_A.resize_(input_A.size()).copy_(input_A)
-        self.input_B.resize_(input_B.size()).copy_(input_B.long()) # TODO: resize_ unnecessary
-        #if len(self.gpu_ids) > 0:
-        #    self.input_A = input_A.cuda(self.gpu_ids[0])
-        #    self.input_B = input_B.long().cuda(self.gpu_ids[0])
-        #else:
-        #    self.input_A = input_A
-        #    self.input_B = input_B.long()
         self.image_paths = input['A_paths' if AtoB else 'B_paths']
 
-        unsup = input['unsup']
-        assert(unsup.min() == unsup.max())
-        self.use_real_B = not bool(unsup[0])
+        # unsup flag
+        self.use_real_B = True
+        if 'unif' in self.opt.unsup_sampler:
+            unsup = input['unsup']
+            assert(unsup.min() == unsup.max()) # a batch should be all 'unsup' or all 'sup'
+            self.use_real_B = not bool(unsup[0])
+
+        # input_B and [input_A_sup]
+        if additional is not None:
+            # input_A_sup
+            input_A_sup = additional['A' if AtoB else 'B']
+            #self.input_A_sup = torch.zeros_like(self.input_A)
+            self.input_A_sup = torch.zeros(self.input_A.size()).type_as(self.input_A)
+            self.input_A_sup.resize_(input_A_sup.size()).copy_(input_A_sup)
+            # input_B
+            input_B = additional['B' if AtoB else 'A']
+        else:
+            input_B = input['B' if AtoB else 'A'] # eval will need input_B, so store it anyway
+        self.input_B.resize_(input_B.size()).copy_(input_B.long())
 
     def get_image_paths(self):
         return self.image_paths

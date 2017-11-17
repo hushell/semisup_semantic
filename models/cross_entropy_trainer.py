@@ -33,8 +33,13 @@ class CrossEntropyTrainer(BaseTrainer):
             self.lossfuncs['CE'] = self.lossfuncs['CE'].cuda(self.gpu_ids[0])
 
     def forward(self):
-        self.real_A = Variable(self.input_A)
         self.real_B = Variable(self.input_B)
+
+        # sup forward
+        if hasattr(self, 'input_A_sup'):
+            self.real_A = Variable(self.input_A_sup)
+        else:
+            self.real_A = Variable(self.input_A)
         self.fake_B = self.models['G_A'].forward(self.real_A)
 
     def backward(self):

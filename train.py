@@ -31,6 +31,11 @@ opt = train_loader.update_opt(opt)
 visualizer = Visualizer(opt)
 trainer = CreateTrainer(opt)
 
+if opt.unsup_sampler == 'sep':
+    from itertools import izip
+    sampler = izip(train_loader.dataloader, train_loader.dataloader_sup)
+else: # unsup or unsup_ignore
+    sampler = train_loader
 
 ######################################
 # exp_manager
@@ -56,17 +61,21 @@ for epoch in range(begin_epoch, opt.niter+opt.niter_decay+1):
     trainer.update_learning_rate(epoch)
     epoch_start_time = time.time()
 
-    for i, data in enumerate(train_loader):
-        if opt.unsup_ignore:
+    for i, data in enumerate(sampler):
+        if opt.unsup_sampler == 'unif_ignore':
             if data['unsup'][0]:
-                print('index %d is unsupervised' % i)
+                #print('index %d is unsupervised' % i)
                 continue
 
         total_steps += opt.batchSize
 
         # gradient step
         iter_start_time = time.time()
-        trainer.set_input(data)
+        if opt.unsup_sampler == 'sep':
+            input, additional = data
+            trainer.set_input(input, additional)
+        else:
+            trainer.set_input(data)
         trainer.optimize_parameters()
         t = (time.time() - iter_start_time) / opt.batchSize
 
