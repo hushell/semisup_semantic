@@ -20,17 +20,24 @@ class CamvidDataset(data.Dataset):
         self.ignore_index = 11
         #self.mean = np.array([104.00699, 116.66877, 122.67892])
         self.mean = [0.41189489566336, 0.4251328133025, 0.4326707089857]
-        self.std = [0.27413549931506, 0.28506257482912, 0.28284674400252]
+        #self.std = [0.27413549931506, 0.28506257482912, 0.28284674400252]
+        self.std = [1.0, 1.0, 1.0]
 
         # samples
-        self.files = os.listdir(root + '/' + self.split)
+        self.files = np.array( os.listdir(root + '/' + self.split) )
+        self.unsup = np.zeros(len(self.files), dtype=np.bool)
 
-        self.unsup = np.zeros(len(self.files), dtype=np.int32)
         if opt.isTrain and opt.unsup_portion > 0:
-            assert(opt.unsup_portion < opt.portion_total) # e.g., unsup_portion=0: no unsup; unsup_portion=portion_total=10: all unsup
-            tmp = np.concatenate([np.arange(i,len(self.files),opt.portion_total) for i in range(opt.unsup_portion)])
-            self.unsup[tmp] = 1
-            print('==> unsupervised portion = %.3f' % (float(sum(self.unsup)) / len(self.files)))
+            if hasattr(opt, 'unsup'): # keep only supervised samples, DEPRECATED
+                self.files = self.files[np.logical_not(opt.unsup)]
+                self.unsup = np.zeros(len(self.files), dtype=np.bool)
+            else:
+                # chunking, chunk.size = portion_total; first 0~unsup_portion elements in chunk set flag = True
+                # e.g., unsup_portion=0: no unsup; unsup_portion=portion_total=10: all unsup
+                assert(opt.unsup_portion <= opt.portion_total)
+                tmp = np.concatenate([np.arange(i,len(self.files),opt.portion_total) for i in range(opt.unsup_portion)])
+                self.unsup[tmp] = True
+                print('==> unsupervised portion = %.3f' % (float(sum(self.unsup)) / len(self.files)))
 
         # transforms
         transform_list = []
@@ -100,55 +107,8 @@ class CamvidDataset(data.Dataset):
         lbl = m.imread(lbl_path)
         lbl = np.array(lbl, dtype=np.int32)
 
-        #img, lbl = self.transform(img, lbl)
         img, lbl = self.transform_fun((img, lbl))
 
         return {'A': img, 'B': lbl, 'unsup': self.unsup[index],
                 'A_paths': img_path, 'B_paths': lbl_path}
 
-    def transform(self, img, lbl):
-        img = img[:, :, ::-1]
-        img = img.astype(np.float32)
-        img -= self.mean
-        img = img.astype(float) / 255.0
-        # NHWC -> NCHW
-        img = img.transpose(2, 0, 1)
-
-        #img = torch.from_numpy(img).float()
-        #lbl = torch.from_numpy(lbl).long()
-        return img, lbl
-
-    def decode_segmap(self, temp, plot=False):
-        label_colours = self.label2color
-        r = temp.copy()
-        g = temp.copy()
-        b = temp.copy()
-        for l in range(0, self.n_classes):
-            r[temp == l] = label_colours[l, 0]
-            g[temp == l] = label_colours[l, 1]
-            b[temp == l] = label_colours[l, 2]
-
-        rgb = np.zeros((temp.shape[0], temp.shape[1], 3))
-        rgb[:, :, 0] = r
-        rgb[:, :, 1] = g
-        rgb[:, :, 2] = b
-        if plot:
-            plt.imshow(rgb)
-            plt.show()
-        else:
-            return rgb
-
-if __name__ == '__main__':
-    local_path = '/home/meetshah1995/datasets/segnet/CamVid'
-    dst = camvidLoader(local_path, is_transform=True)
-    trainloader = data.DataLoader(dst, batch_size=4)
-    for i, data in enumerate(trainloader):
-        imgs, labels = data
-        if i == 0:
-            img = torchvision.utils.make_grid(imgs).numpy()
-            img = np.transpose(img, (1, 2, 0))
-            img = img[:, :, ::-1]
-            plt.imshow(img)
-            plt.show()
-            plt.imshow(dst.decode_segmap(labels.numpy()[i]))
-            plt.show()

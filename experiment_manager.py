@@ -1,3 +1,4 @@
+from __future__ import print_function
 import os
 import time
 import sys
@@ -113,6 +114,7 @@ class ExperimentManager():
         eval_stats = SegmentationMeter(n_class=self.opt.output_nc, ignore_index=self.opt.ignore_index)
         start_time = time.time()
         for i,data in enumerate(self.data_loader[phase]):
+            print('%d' % i, end=' ')
             self.trainer.set_input(data)
             self.trainer.test(phase)
             pred, gt = self.trainer.get_eval_pair()
@@ -127,7 +129,7 @@ class ExperimentManager():
             self.plot_current_images(9999, i, subset=phase, do_save=do_save)
 
         eval_results = eval_stats.get_eval_results()
-        msg = '==> %s Results [%d images] \t Time Taken: %.2f sec: %s\n' % \
+        msg = '\n==> %s Results [%d images] \t Time Taken: %.2f sec: %s\n' % \
                     (phase, len(self.data_loader[phase]), time.time()-start_time, eval_results[0])
         msg += 'Per-class IoU:\n'
         msg += ''.join(['%s: %.2f\n' % (cname,ciu)

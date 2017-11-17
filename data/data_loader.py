@@ -27,25 +27,62 @@ class SemiSupRandomSampler(Sampler):
     def __len__(self):
         return self.len_sup + self.len_unsup
 
+class RepeatRandomSampler(Sampler):
+    def __init__(self, subset, fulllen):
+        self.subset = torch.from_numpy(subset)
+        self.fulllen = fulllen
+
+    def __iter__(self):
+        n_sub = len(self.subset)
+        n_repeats = self.fulllen // n_sub + 1
+        rep_subset = torch.cat([self.subset[torch.randperm(n_sub)] for _ in range(n_repeats)]).long()
+        return iter(rep_subset[0:self.fulllen])
+
+    def __len__(self):
+        return self.fulllen
+
 class CustomDatasetDataLoader(object):
     def __init__(self, opt):
         self.dataset = CreateDataset(opt)
-        sampler_type = RandomSampler if opt.isTrain else SequentialSampler
-        my_sampler = SemiSupRandomSampler(self.dataset.unsup, opt.batchSize) \
-                        if opt.isTrain and opt.unsup_portion > 0 else sampler_type(self.dataset)
+        batchSize = opt.batchSize if opt.isTrain else 1
+
+        if opt.isTrain:
+            if 'unif' in opt.unsup_sampler: # unif, unif_ignore
+                my_sampler = SemiSupRandomSampler(self.dataset.unsup, batchSize)
+            elif opt.unsup_sampler == 'sep':
+                my_sampler = RandomSampler(self.dataset)
+                sup_indices = np.where(1 - self.dataset.unsup)[0]
+                my_sampler_sup = RepeatRandomSampler(sup_indices, len(self.dataset))
+                self.dataloader_sup = torch.utils.data.DataLoader(
+                    self.dataset,
+                    batch_size=batchSize,
+                    sampler = my_sampler_sup,
+                    num_workers=int(opt.nThreads),
+                    drop_last=True)
+            else:
+                raise ValueError("unsup_sampler [%s] not recognized." % opt.unsup_sampler)
+        else:
+            my_sampler = SequentialSampler(self.dataset)
+
         self.dataloader = torch.utils.data.DataLoader(
             self.dataset,
-            batch_size=opt.batchSize,
+            batch_size=batchSize,
             #shuffle=True,
             sampler = my_sampler,
             num_workers=int(opt.nThreads),
-            drop_last=True)
+            drop_last=True if opt.isTrain else False)
 
     def __iter__(self):
         return self.dataloader.__iter__()
 
     def __len__(self):
         return len(self.dataset)
+
+    def iter_all(self):
+        return self.dataloader.__iter__()
+
+    def iter_sup(self):
+        return self.dataloader_sup.__iter__()
 
     def name(self):
         return 'CustomDatasetDataLoader'

@@ -27,7 +27,6 @@ class WassCycleGANCrossEntTrainer(BaseTrainer):
             self._set_loss()
             self._set_optim(opt)
             self._set_fake_pool()
-            self.losses['G_A-CE'] = Variable(torch.from_numpy(np.array([0])))
 
     def _set_model(self, opt):
         self.models['G_A'] = networks.define_G(opt.input_nc, opt.output_nc, opt.ngf, opt.which_model_netG,
@@ -55,8 +54,15 @@ class WassCycleGANCrossEntTrainer(BaseTrainer):
     def forward(self):
         self.real_A = Variable(self.input_A)
         self.real_B = Variable(self.input_B)
+
+        # unsup forward
         self.fake_B = self.models['G_A'].forward(self.real_A) # G_A(A)
         self.rec_A = self.models['G_B'].forward(self.fake_B) # G_B(G_A(A))
+
+        # sup forward
+        if hasattr(self, 'input_A_sup'):
+            self.real_A_sup = Variable(self.input_A_sup)
+            self.fake_B = self.models['G_A'].forward(self.real_A_sup)
 
     def backward_D_A(self, rec_A, eval_mode=False):
         '''
@@ -64,14 +70,14 @@ class WassCycleGANCrossEntTrainer(BaseTrainer):
         '''
         # train with real
         D_A_real = self.models['D_A'].forward(self.real_A)
-        D_A_real = -D_A_real.mean()
+        D_A_real = -D_A_real.mean() * self.opt.lambda_A
         if not eval_mode:
             D_A_real.backward()
 
         # train with fake
         detached_rec_A = rec_A.detach()
         D_A_fake = self.models['D_A'].forward(detached_rec_A)
-        D_A_fake = D_A_fake.mean()
+        D_A_fake = D_A_fake.mean() * self.opt.lambda_A
         if not eval_mode:
             D_A_fake.backward()
 
@@ -100,12 +106,12 @@ class WassCycleGANCrossEntTrainer(BaseTrainer):
         self.losses['G_A-G_B-L1'] = self.lossfuncs['L1'](self.rec_A, self.real_A)
 
         # reconstruction loss for A
-        self.losses['G_AB'] = self.losses['G_A-G_B-L1']*self.opt.lambda_A + self.losses['G_A-G_B-GAN']
+        self.losses['G_AB'] = (self.losses['G_A-G_B-L1'] + self.losses['G_A-G_B-GAN']) * self.opt.lambda_A
 
         if self.use_real_B:
             # cross_ent(G_A(A), B)
             self.losses['G_A-CE'] = self.lossfuncs['CE'](self.fake_B, self.real_B)
-            self.losses['G_AB'] += self.losses['G_A-CE']*self.opt.lambda_B
+            self.losses['G_AB'] += self.losses['G_A-CE'] * self.opt.lambda_B
 
         if not eval_mode:
             self.losses['G_AB'].backward()
@@ -194,9 +200,12 @@ class WassCycleGANCrossEntTrainer(BaseTrainer):
                 'real_B': gt, 'fake_B': pred}
         if hasattr(self, 'rec_A'):
             res['rec_A'] = self.rec_A.data.cpu()
+        if hasattr(self, 'real_A_sup'):
+            res['real_A_sup'] = self.real_A_sup.data.cpu()
         return res
 
     def test(self, phase='train'):
         super(WassCycleGANCrossEntTrainer, self).test()
         if phase == 'test': # in training's eval, don't need rec_A
             self.rec_A = self.models['G_B'].forward(self.fake_B) # G_B(G_A(A))
+
