@@ -6,6 +6,7 @@ from util.visualizer import Visualizer
 from experiment_manager import ExperimentManager
 import os
 import torch
+from itertools import izip
 
 opt = TrainOptions().parse()
 
@@ -31,12 +32,6 @@ opt = train_loader.update_opt(opt)
 visualizer = Visualizer(opt)
 trainer = CreateTrainer(opt)
 
-if opt.unsup_sampler == 'sep':
-    from itertools import izip
-    sampler = izip(train_loader.dataloader, train_loader.dataloader_sup)
-else: # unsup or unsup_ignore
-    sampler = train_loader
-
 ######################################
 # exp_manager
 expmgr = ExperimentManager(opt, trainer, visualizer, train_loader, val_loader)
@@ -61,6 +56,11 @@ for epoch in range(begin_epoch, opt.niter+opt.niter_decay+1):
     trainer.update_learning_rate(epoch)
     epoch_start_time = time.time()
 
+    if opt.unsup_sampler == 'sep':
+        sampler = izip(train_loader.dataloader, train_loader.dataloader_sup)
+    else: # unsup or unsup_ignore
+        sampler = train_loader
+
     for i, data in enumerate(sampler):
         if opt.unsup_sampler == 'unif_ignore':
             if data['unsup'][0]:
@@ -73,7 +73,8 @@ for epoch in range(begin_epoch, opt.niter+opt.niter_decay+1):
         iter_start_time = time.time()
         if opt.unsup_sampler == 'sep':
             input, additional = data
-            trainer.set_input(input, additional)
+            trainer.set_input(additional, additional)
+            #trainer.set_input(input, additional)
         else:
             trainer.set_input(data)
         trainer.optimize_parameters()
