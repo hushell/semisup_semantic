@@ -73,8 +73,8 @@ for epoch in range(begin_epoch, opt.niter+opt.niter_decay+1):
         iter_start_time = time.time()
         if opt.unsup_sampler == 'sep':
             input, additional = data
-            trainer.set_input(additional, additional)
-            #trainer.set_input(input, additional)
+            #trainer.set_input(additional, additional)
+            trainer.set_input(input, additional)
         else:
             trainer.set_input(data)
         trainer.optimize_parameters()
