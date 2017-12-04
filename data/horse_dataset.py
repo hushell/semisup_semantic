@@ -20,7 +20,8 @@ class HorseDataset(data.Dataset):
         #self.ignore_index = -100
         #self.mean = np.array([128.2095, 124.9667, 106.0276])
         self.mean = [0.5028, 0.4901, 0.4158]
-        self.std = [0.2527, 0.2490, 0.2543]
+        #self.std = [0.2527, 0.2490, 0.2543]
+        self.std = [1.0, 1.0, 1.0]
 
         # samples
         self.files = os.listdir(root + '/A/')
