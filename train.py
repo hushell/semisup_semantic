@@ -56,7 +56,7 @@ for epoch in range(begin_epoch, opt.niter+opt.niter_decay+1):
     trainer.update_learning_rate(epoch)
     epoch_start_time = time.time()
 
-    if opt.unsup_sampler == 'sep':
+    if opt.unsup_sampler == 'sep' and opt.unsup_portion > 0:
         sampler = izip(train_loader.dataloader, train_loader.dataloader_sup)
     else: # unsup or unsup_ignore
         sampler = train_loader
@@ -71,10 +71,10 @@ for epoch in range(begin_epoch, opt.niter+opt.niter_decay+1):
 
         # gradient step
         iter_start_time = time.time()
-        if opt.unsup_sampler == 'sep':
+        if opt.unsup_sampler == 'sep' and opt.unsup_portion > 0:
             input, additional = data
-            trainer.set_input(additional, additional)
-            #trainer.set_input(input, additional)
+            #trainer.set_input(additional, additional) # for supervised only
+            trainer.set_input(input, additional)
         else:
             trainer.set_input(data)
         trainer.optimize_parameters()
