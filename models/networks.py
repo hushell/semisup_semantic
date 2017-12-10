@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 from torch.autograd import Variable
 import numpy as np
+from util.util import normalize
 
 ###############################################################################
 # Functions
@@ -62,7 +63,7 @@ def define_G(input_nc, output_nc, ngf, which_model_netG, norm='batch', use_dropo
 
 
 def define_D(input_nc, ndf, which_model_netD,
-             n_layers_D=3, norm='batch', gan_type='ls', gpu_ids=[]):
+             n_layers_D=3, norm='batch', gan_type='ls', gpu_ids=[], nz=100):
     netD = None
     use_gpu = len(gpu_ids) > 0
     norm_layer = get_norm_layer(norm_type=norm)
@@ -73,6 +74,8 @@ def define_D(input_nc, ndf, which_model_netD,
         netD = NLayerDiscriminator(input_nc, ndf, n_layers=3, norm_layer=norm_layer, gan_type=gan_type, gpu_ids=gpu_ids)
     elif which_model_netD == 'n_layers':
         netD = NLayerDiscriminator(input_nc, ndf, n_layers_D, norm_layer=norm_layer, gan_type=gan_type, gpu_ids=gpu_ids)
+    elif which_model_netD == 'netE':
+        netD = netE(input_nc, nz, ndf=64, size=32, proj_sphere=True, gpu_ids=gpu_ids)
     else:
         print('Discriminator model name [%s] is not recognized' %
               which_model_netD)
@@ -144,6 +147,66 @@ class NLayerDiscriminator(nn.Module):
 
         #if self.gan_type is 'wass':
         #    output = output.mean(0).view(1)
+        return output
+
+##############################################################################
+# net E
+##############################################################################
+
+class netE(nn.Module):
+    def __init__(self, nc, nz, ndf=64, size=32, proj_sphere=True, gpu_ids=[]):
+        super(netE, self).__init__()
+        self.gpu_ids = gpu_ids
+
+        if size == 32:
+            main = nn.Sequential(
+                # input is (nc) x 32 x 32
+                nn.Conv2d(nc, ndf, 4, 2, 1, bias=False),
+                nn.LeakyReLU(0.2, inplace=True),
+                nn.Conv2d(ndf, ndf * 2, 4, 2, 1, bias=False),
+                nn.BatchNorm2d(ndf * 2),
+                nn.LeakyReLU(0.2, inplace=True),
+                nn.Conv2d(ndf * 2, ndf * 4, 4, 2, 1, bias=False),
+                nn.BatchNorm2d(ndf * 4),
+                nn.LeakyReLU(0.2, inplace=True),
+                nn.Conv2d(ndf * 4, nz, 4, 2, 1, bias=True),
+                nn.AvgPool2d(2),
+            )
+        elif size == 64:
+            main = nn.Sequential(
+                # input is (nc) x 64 x 64
+                nn.Conv2d(nc, ndf, 4, 2, 1, bias=False),
+                nn.LeakyReLU(0.2, inplace=True),
+                # state size. (ndf) x 16 x 16
+                nn.Conv2d(ndf, ndf * 2, 4, 2, 1, bias=False),
+                nn.BatchNorm2d(ndf * 2),
+                nn.LeakyReLU(0.2, inplace=True),
+                # state size. (ndf*2) x 8 x 8
+                nn.Conv2d(ndf * 2, ndf * 4, 4, 2, 1, bias=False),
+                nn.BatchNorm2d(ndf * 4),
+                nn.LeakyReLU(0.2, inplace=True),
+                # state size. (ndf*4) x 4 x 4
+                nn.Conv2d(ndf * 4, ndf * 8, 4, 2, 1, bias=False),
+                nn.BatchNorm2d(ndf * 8),
+                nn.LeakyReLU(0.2, inplace=True),
+                # state size. (ndf*8) x 4 x 4
+                nn.Conv2d(ndf * 8, nz, 4, 1, 0, bias=True),
+            )
+        else:
+            raise ValueError('size %d not recognized!' % size)
+
+        self.model = main
+
+    def forward(self, input):
+        if len(self.gpu_ids) and isinstance(input.data, torch.cuda.FloatTensor):
+            output = nn.parallel.data_parallel(self.model, input, self.gpu_ids)
+        else:
+            output = self.model(input)
+
+        output = output.view(output.size(0), -1)
+        if proj_sphere:
+            output = normalize(output)
+
         return output
 
 

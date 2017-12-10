@@ -75,3 +75,27 @@ def mkdirs(paths):
 def mkdir(path):
     if not os.path.exists(path):
         os.makedirs(path)
+
+
+def normalize_(x, dim=1):
+    '''
+    Projects points to a sphere inplace.
+    '''
+    x.div_(x.norm(2, dim=dim, keepdim=True).expand_as(x))
+
+
+def normalize(x, dim=1):
+    '''
+    Projects points to a sphere.
+    '''
+    return x.div(x.norm(2, dim=dim, keepdim=True).expand_as(x))
+
+
+def var(x, dim=0):
+    '''
+    Calculates variance.
+    '''
+    x_zero_meaned = x - x.mean(dim).expand_as(x)
+    return x_zero_meaned.pow(2).mean(dim)
+
+

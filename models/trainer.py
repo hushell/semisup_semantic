@@ -6,6 +6,7 @@ from torch.autograd import Variable
 LUT = [(40,0.0001), (100,0.00003), (160,0.00001), (220,0.000003), (240,0.000001)]
 LR_DECAY = 0.995 # Applied each epoch "exponential decay"
 DECAY_LR_EVERY_N_EPOCHS = 1
+DROP_LR_FREQ = 5
 
 class BaseTrainer(object):
     def name(self):
@@ -126,6 +127,10 @@ class BaseTrainer(object):
             lr = next((lr for (max_epoch, lr) in LUT if max_epoch>epoch), LUT[-1][1])
         elif self.lr_scheme == 'exp':
             lr = self.opt.lr * (LR_DECAY ** (epoch // DECAY_LR_EVERY_N_EPOCHS))
+        elif self.lr_scheme == 'exp2':
+            if epoch % DROP_LR_FREQ == (DROP_LR_FREQ - 1):
+                lr = self.old_lr
+                lr /= 2
         else:
             raise ValueError("lr scheme [%s] not recognized." % opt.lr_scheme)
 
