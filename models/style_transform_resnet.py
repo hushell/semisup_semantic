@@ -17,7 +17,7 @@ class StyleTransformResNet(nn.Module):
         self.ngf = ngf
         self.gpu_ids = gpu_ids
 
-        model = [nn.Conv2d(input_nc, ngf, kernel_size=7, padding=3),
+        model = [nn.Conv2d(input_nc, ngf, kernel_size=7, padding=3), # out_size = input_size
                  norm_layer(ngf, affine=True),
                  nn.ReLU(True)]
 
@@ -25,23 +25,23 @@ class StyleTransformResNet(nn.Module):
         for i in range(n_downsampling):
             mult = 2**i
             model += [nn.Conv2d(ngf * mult, ngf * mult * 2, kernel_size=3,
-                                stride=2, padding=1),
+                                stride=2, padding=1), # out_size = (input_size - 1) / 2 + 1
                       norm_layer(ngf * mult * 2, affine=True),
                       nn.ReLU(True)]
 
         mult = 2**n_downsampling
-        for i in range(n_blocks):
+        for i in range(n_blocks): # out_size = input_size; out_nc = input_nc
             model += [ResnetBlock(ngf * mult, 'zero', norm_layer=norm_layer, use_dropout=use_dropout)]
 
         for i in range(n_downsampling):
             mult = 2**(n_downsampling - i)
             model += [nn.ConvTranspose2d(ngf * mult, int(ngf * mult / 2),
                                          kernel_size=3, stride=2,
-                                         padding=1, output_padding=1),
+                                         padding=1, output_padding=1), # out_size = input_size * 2
                       norm_layer(int(ngf * mult / 2), affine=True),
                       nn.ReLU(True)]
 
-        model += [nn.Conv2d(ngf, output_nc, kernel_size=7, padding=3)]
+        model += [nn.Conv2d(ngf, output_nc, kernel_size=7, padding=3)] # out_size = input_size
 
         if last_layer == 'softmax':
             model += [nn.LogSoftmax()]
