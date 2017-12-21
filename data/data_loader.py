@@ -98,6 +98,31 @@ class CustomDatasetDataLoader(object):
         #    opt.widthSize = self.dataset.widthSize
         return opt
 
+class XYDataLoader(object):
+    def __init__(self, opt, is_paired):
+        self.dataset = CreateDataset(opt)
+
+        assert(opt.isTrain == True and opt.unsup_sampler == 'sep')
+
+        if is_paired:
+            sup_indices = np.where(1 - self.dataset.unsup)[0]
+            my_sampler = RepeatRandomSampler(sup_indices, len(self.dataset))
+        else:
+            my_sampler = RandomSampler(self.dataset)
+
+        self.dataloader = torch.utils.data.DataLoader(
+            self.dataset,
+            batch_size=opt.batchSize,
+            sampler = my_sampler,
+            num_workers=int(opt.nThreads),
+            drop_last=True)
+
+    def __iter__(self):
+        return self.dataloader.__iter__()
+
+    def __len__(self):
+        return len(self.dataset)
+
 def CreateDataset(opt):
     dataset = None
     data_path = get_data_path(opt.dataset)
@@ -128,3 +153,25 @@ def get_data_path(name, config_file='config.json'):
     import json
     data = json.load(open('data/config.json'))
     return data[name]['data_path']
+
+class InfiniteDataLoader(object):
+    """Allow to load sample infinitely"""
+
+    def __init__(self, dataloader):
+        super(InfiniteDataLoader, self).__init__()
+        self.dataloader = dataloader
+        self.data_iter = None
+
+    def next(self):
+        try:
+            data = self.data_iter.next()
+        except Exception:
+            # Reached end of the dataset
+            self.data_iter = iter(self.dataloader)
+            data = self.data_iter.next()
+
+        return data
+
+    def __len__(self):
+        return len(self.dataloader)
+
