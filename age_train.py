@@ -3,74 +3,14 @@ import time
 import os
 import torch
 from itertools import izip
-
-import argparse
 import numpy as np
 import torch.nn.parallel
 import torch.optim as optim
 import torchvision.utils as vutils
 from torch.autograd import Variable
+from age_nets import *
 
-#########################################################################
-# OPTIONS
-parser = argparse.ArgumentParser()
-################################
-# optimizer
-################################
-parser.add_argument('--niter', type=int, default=100, help='# of iter at starting learning rate')
-parser.add_argument('--lr', type=float, default=0.0002, help='initial learning rate for adam')
-parser.add_argument('--drop_lr', default=5, type=int, help='')
-parser.add_argument('--beta1', type=float, default=0.5, help='momentum term of ADAM')
-
-################################
-# train settings
-################################
-parser.add_argument('--name', type=str, default='experiment_name', help='name of the experiment. It decides where to store samples and models')
-parser.add_argument('--dataset', type=str, default='cityscapesAB', help='chooses which dataset is loaded. [cityscapesAB | pascal | camvid]')
-parser.add_argument('--which_direction', type=str, default='AtoB', help='AtoB or BtoA')
-parser.add_argument('--resize_or_crop', type=str, default='resize_and_crop', help='scaling and cropping of images at load time [resize_and_crop|crop|scale_width|no_resize]')
-parser.add_argument('--no_flip', action='store_true', help='if specified, do not flip the images for data argumentation')
-parser.add_argument('--ignore_index', type=int, default=-100, help='mask this class without contributing to nll_loss')
-
-parser.add_argument('--unsup_portion', type=int, default=9, help='portion of unsupervised, range=0,...,10')
-parser.add_argument('--portion_total', type=int, default=10, help='total portion of unsupervised, e.g., 10')
-parser.add_argument('--unsup_sampler', type=str, default='sep', help='unif, sep, unif_ignore')
-parser.add_argument('--checkpoints_dir', default='ckpt', help='folder to output images and model checkpoints')
-parser.add_argument('--save_every', default=5, type=int, help='')
-parser.add_argument('--manual_seed', type=int, default=123, help='manual seed')
-parser.add_argument('--start_epoch', type=int, default=0, help='epoch number to start with')
-parser.add_argument('--nThreads', default=4, type=int, help='# threads for loading data')
-parser.add_argument('--gpu_ids', type=str, default='', help='gpu ids: e.g. 0; 0,2')
-
-################################
-# model settings
-################################
-parser.add_argument('--batchSize', type=int, default=1, help='input batch size')
-parser.add_argument('--widthSize', type=int, default=256, help='crop to this width')
-parser.add_argument('--heightSize', type=int, default=256, help='crop to this height')
-parser.add_argument('--input_nc', type=int, default=3, help='# of input image channels')
-parser.add_argument('--output_nc', type=int, default=20, help='# of output image channels')
-parser.add_argument('--nz', type=int, default=100, help='size of the latent z vector')
-parser.add_argument('--net_chp', default='', help="path to nets (to continue training)")
-parser.add_argument('--use_dropout', action='store_true', help='use dropout for the generator')
-parser.add_argument('--ngf', type=int, default=64, help='# of gen filters in first conv layer')
-parser.add_argument('--ndf', type=int, default=64, help='# of discrim filters in first conv layer')
-parser.add_argument('--noise', default='sphere', help='normal|sphere')
-
-################################
-# external
-################################
-parser.add_argument('--display_winsize', type=int, default=256,  help='display window size')
-parser.add_argument('--display_id', type=int, default=1, help='window id of the web display')
-parser.add_argument('--port', type=int, default=8097, help='port of visdom')
-parser.add_argument('--no_html', action='store_true', help='do not save intermediate training results to [opt.checkpoints_dir]/[opt.name]/web/')
-
-# opt
-opt = parser.parse_args()
-opt.isTrain = True
-
-assert(opt.unsup_sampler == 'sep')
-assert(opt.unsup_portion > 0)
+opt = get_opt()
 
 # gpu id
 os.environ['CUDA_VISIBLE_DEVICES'] = opt.gpu_ids # absolute ids
@@ -105,7 +45,6 @@ y_loader = InfiniteDataLoader(y_loader)
 visualizer = Visualizer(opt)
 
 #########################################################################
-from age_nets import *
 TAU0 = 1.0
 
 # networks
@@ -114,7 +53,7 @@ net =dict()
 net['F'] = GX2Y(opt, temperature=TAU0)
 net['H'] = GX2Z(opt.input_nc, opt.nz, opt.ngf, opt.gpu_ids)
 net['G'] = GYZ2X(opt.input_nc, opt.output_nc, opt.nz, opt.ngf, opt.gpu_ids)
-net['D'] = DXYZ(opt.input_nc, opt.output_nc, opt.nz, opt.ndf, opt.gpu_ids)
+net['D'] = DXYZ(opt.input_nc, opt.output_nc, opt.nz, opt.ngf, opt.ndf, opt.gpu_ids)
 
 for k in net.keys():
     net[k].apply(weights_init)
@@ -124,23 +63,39 @@ for k in net.keys():
 
 #########################################################################
 # variables
-x = torch.FloatTensor(opt.batchSize, opt.input_nc, opt.heightSize, opt.widthSize)
-y = torch.FloatTensor(opt.batchSize, opt.output_nc, opt.heightSize, opt.widthSize)
-y_int = torch.LongTensor(opt.batchSize, opt.heightSize, opt.widthSize)
-z = torch.FloatTensor(opt.batchSize, opt.nz, 1, 1)
+class AGEModel:
+    def __init__(self):
+        x = torch.FloatTensor(opt.batchSize, opt.input_nc, opt.heightSize, opt.widthSize)
+        y = torch.FloatTensor(opt.batchSize, opt.output_nc, opt.heightSize, opt.widthSize)
+        y_int = torch.LongTensor(opt.batchSize, opt.heightSize, opt.widthSize)
+        z = torch.FloatTensor(opt.batchSize, opt.nz, 1, 1)
 
-if len(opt.gpu_ids) > 0:
-    x = x.cuda(opt.gpu_ids[0])
-    y = y.cuda(opt.gpu_ids[0])
-    y_int = y_int.cuda(opt.gpu_ids[0])
-    z = z.cuda(opt.gpu_ids[0])
-    for k in net.keys():
-        net[k].cuda(opt.gpu_ids[0])
+        if len(opt.gpu_ids) > 0:
+            x = x.cuda(opt.gpu_ids[0])
+            y = y.cuda(opt.gpu_ids[0])
+            y_int = y_int.cuda(opt.gpu_ids[0])
+            z = z.cuda(opt.gpu_ids[0])
+            for k in net.keys():
+                net[k].cuda(opt.gpu_ids[0])
 
-x = Variable(x)
-y = Variable(y)
-y_int = Variable(y_int)
-z = Variable(z)
+        self.assign(Variable(x), Variable(y), Variable(y_int), Variable(z))
+
+    def assign(self, x, y, y_int, z):
+        self.x = x
+        self.y = y
+        self.y_int = y_int
+        self.z = z
+
+    def noise_y(self):
+        log_probs_gt = torch.log(self.y + 1e-9)
+        self.y = net['F'].reparameterize(log_probs_gt) # add noise
+
+    def one_hot(self):
+        y_temp = self.y_int.unsqueeze(dim=1)
+        self.y.data.zero_()
+        self.y.scatter_(1, y_temp, 1)
+
+v = AGEModel()
 
 #########################################################################
 # optimizers
@@ -154,12 +109,13 @@ def adjust_lr(epoch):
         for k in optimizer.keys():
             for param_group in optimizer[k].param_groups:
                 param_group['lr'] = opt.lr
+        print('===> Start of epoch %d / %d \t lr = %.6f' % (epoch, opt.niter, opt.lr))
 
 # losses
 CE, L1, KL =  create_losses(opt)
 
 #########################################################################
-D_ITERS = 0 # TODO: dynamic trick
+D_ITERS = 5 # TODO: dynamic trick
 G_ITERS = 1
 CLAMP_LOW = -0.01
 CLAMP_UPP = 0.01
@@ -168,25 +124,20 @@ MIN_TEMP=0.5
 LAMBDA_CE = 10.0
 num_pixs = opt.batchSize * opt.heightSize * opt.widthSize
 
-def noise_y(y):
-    log_probs_gt = torch.log(y + 1e-9)
-    y = net['F'].reparameterize(log_probs_gt) # add noise
-    return y
-
 def populate_xyz_hat():
     # X -> Y, Z
-    populate_xy(x, None, x_loader, opt)
-    z_hat = net['H'](x)
-    y_hat = net['F'](x)
+    populate_xy(v.x, None, x_loader, opt)
+    z_hat = net['H'](v.x)
+    y_hat = net['F'](v.x)
 
     # Y, Z -> X
-    populate_xy(None, y_int, y_loader, opt)
-    one_hot(y, y_int)
-    y = noise_y(y)
-    populate_z(z, opt)
-    x_hat = net['G']( (y,z) )
+    populate_xy(None, v.y_int, y_loader, opt)
+    v.one_hot()
+    v.noise_y() # v.y
+    populate_z(v.z, opt)
+    x_hat = net['G']( [v.y, v.z] )
 
-    return x_hat,y_hat,z_hat
+    return x_hat, y_hat, z_hat
 
 from util.meter import SegmentationMeter
 def evaluation():
@@ -201,6 +152,7 @@ def evaluation():
     net['F'].eval()
     eval_stats = SegmentationMeter(n_class=opt.output_nc, ignore_index=opt.ignore_index)
     E_loss_CE = []
+
     start_time = time.time()
     for i in range(len(val_loader)):
         populate_xy(x, y_int, val_loader, opt)
@@ -213,7 +165,7 @@ def evaluation():
 
     print('EVAL ==> average CE = %.3f' % (sum(E_loss_CE).data[0] / len(val_loader)))
     eval_results = eval_stats.get_eval_results()
-    msg = 'EVAL [%d images] ==> \t Time Taken: %.2f sec: %s\n' % \
+    msg = 'EVAL [%d images in %.2f sec] ==> %s\n' % \
                 (len(val_loader), time.time()-start_time, eval_results[0])
     msg += 'Per-class IoU:\n'
     msg += ''.join(['%s: %.2f\n' % (cname,ciu)
@@ -231,6 +183,7 @@ for epoch in range(opt.start_epoch, opt.niter):
     # on begin epoch
     adjust_lr(epoch)
     net['F'].temperature = np.maximum(TAU0*np.exp(-ANNEAL_RATE*epoch),MIN_TEMP)
+    print('netF.temperature = %.6f' % net['F'].temperature)
     epoch_start_time = time.time()
 
     for i in range(len(x_loader)):
@@ -242,8 +195,8 @@ for epoch in range(opt.start_epoch, opt.niter):
         for d_i in range(D_ITERS):
             x_hat,y_hat,z_hat = populate_xyz_hat()
 
-            E_q_D = net['D']( [x,y_hat.detach(),z_hat.detach()] ).mean()
-            E_p_D = net['D']( [x_hat.detach(),y.detach(),z.view_as(z_hat)] ).mean()
+            E_q_D = net['D']( [v.x, y_hat.detach(), z_hat.detach()] ).mean()
+            E_p_D = net['D']( [x_hat.detach(), v.y.detach(), v.z.view_as(z_hat)] ).mean()
             d_loss = -1.0 * (E_q_D - E_p_D).pow(2)
 
             optimizer['D'].zero_grad()
@@ -272,22 +225,23 @@ for epoch in range(opt.start_epoch, opt.niter):
                 optimizer['F'].step()
                 optimizer['G'].step()
                 optimizer['H'].step()
+                del g_losses[:]
 
             # paired X, Y
-            populate_xy(x, y_int, paired_loader, opt)
-            z_hat = net['H'](x)
-            y_hat = net['F'](x)
+            populate_xy(v.x, v.y_int, paired_loader, opt)
+            z_hat = net['H'](v.x) # B x nz
+            y_hat = net['F'](v.x)
 
-            paired_loss_CE = CE(y_hat, y_int)
+            paired_loss_CE = CE(y_hat, v.y_int)
             g_losses.append( LAMBDA_CE * paired_loss_CE ) # CE
 
             paired_loss_KL = KL(net['H'].mu, net['H'].logvar, num_pixs)
             g_losses.append( paired_loss_KL ) # KL
 
-            one_hot(y, y_int)
-            y = noise_y(y)
-            x_hat = net['G']( [y,z_hat.view_as(z)] )
-            paired_loss_L1 = L1(x_hat, x)
+            v.one_hot()
+            v.noise_y()
+            x_hat = net['G']( [v.y, z_hat.view_as(v.z)] )
+            paired_loss_L1 = L1(x_hat, v.x)
             g_losses.append( paired_loss_L1 ) # L1
 
             update_FGH()
@@ -296,38 +250,34 @@ for epoch in range(opt.start_epoch, opt.niter):
             stats['P_KL'] = paired_loss_KL.data[0]
             stats['P_L1'] = paired_loss_L1.data[0]
 
-            ## X, Y augmented
-            #x_hat,y_hat,z_hat = populate_xyz_hat()
+            # X, Y augmented
+            x_hat,y_hat,z_hat = populate_xyz_hat() # also x, y, y_int, z, but x_hat != x, y_hat != y
 
-            #x_tilde = net['G']([(y_hat,z_hat.view_as(z)] ) # x -> y_hat, z_hat -> x_tilde
-            #aug_loss_L1 = L1(x_tilde, x)
-            #g_losses.append( aug_loss_L1 ) # L1
+            x_tilde = net['G']( [y_hat, z_hat.view_as(v.z)] ) # x -> y_hat, z_hat -> x_tilde
+            aug_loss_L1 = L1(x_tilde, v.x)
+            g_losses.append( aug_loss_L1 ) # L1
 
-            #y_tilde = net['F'](x_hat) # y,z -> x_hat -> y_tilde
-            #aug_loss_CE = CE(y_tilde, y)
-            #g_losses.append( aug_loss_CE ) # CE
+            y_tilde = net['F'](x_hat) # y,z -> x_hat -> y_tilde
+            aug_loss_CE = CE(y_tilde, v.y_int)
+            g_losses.append( aug_loss_CE ) # CE
 
             #z_tilde = net['H'](x_hat) # y,z -> x_hat -> z_tilde
-            #aug_loss_KL = (z - net['H'].mu).pow(2).div(net['H'].logvar.exp().mul(2)).mean()
+            #aug_loss_KL = (v.z - net['H'].mu).pow(2).div(net['H'].logvar.exp().mul(2)).mean()
             #g_losses.append( aug_loss_KL ) # Gaussian
 
-            #E_q_G = net['D']( [x,y_hat,z_hat] ).mean()
-            #E_p_G = net['D']( [x_hat,y,z.view_as(z_hat)] ).mean()
-            #g_loss = (E_q_G - E_p_G).pow(2)
-            #g_losses.append( g_loss )
+            E_q_G = net['D']( [v.x, y_hat, z_hat] ).mean()
+            E_p_G = net['D']( [x_hat, v.y, v.z.view_as(z_hat)] ).mean()
+            g_loss = (E_q_G - E_p_G).pow(2)
+            g_losses.append( g_loss )
 
-            #update_FGH()
+            update_FGH()
 
-            #stats['A_CE'] = aug_loss_CE.data[0]
-            ##stats['A_KL'] = aug_loss_KL.data[0]
-            #stats['A_L1'] = aug_loss_L1.data[0]
+            stats['A_CE'] = aug_loss_CE.data[0]
+            #stats['A_KL'] = aug_loss_KL.data[0]
+            stats['A_L1'] = aug_loss_L1.data[0]
             ##stats['E_q_G'] = E_q_G.data[0]
             ##stats['E_p_G'] = E_p_G.data[0]
-            #stats['G'] = g_loss.data[0]
-            stats['A_CE'] = 0
-            stats['A_L1'] = 0
-            stats['G'] = 0
-            stats['D'] = 0
+            stats['G'] = g_loss.data[0]
 
         # time spent per sample
         t = (time.time() - iter_start_time) / opt.batchSize

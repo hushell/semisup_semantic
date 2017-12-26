@@ -2,6 +2,74 @@ import torch.nn as nn
 from torch.nn import functional as F
 import torch
 from torch.autograd import Variable
+import argparse
+
+#########################################################################
+# OPTIONS
+parser = argparse.ArgumentParser()
+################################
+# optimizer
+################################
+parser.add_argument('--niter', type=int, default=100, help='# of iter at starting learning rate')
+parser.add_argument('--lr', type=float, default=0.0002, help='initial learning rate for adam')
+parser.add_argument('--drop_lr', default=5, type=int, help='')
+parser.add_argument('--beta1', type=float, default=0.5, help='momentum term of ADAM')
+
+################################
+# data settings
+################################
+parser.add_argument('--dataset', type=str, default='cityscapesAB', help='chooses which dataset is loaded. [cityscapesAB | pascal | camvid]')
+parser.add_argument('--which_direction', type=str, default='AtoB', help='AtoB or BtoA')
+parser.add_argument('--resize_or_crop', type=str, default='resize_and_crop', help='scaling and cropping of images at load time [resize_and_crop|crop|scale_width|no_resize]')
+parser.add_argument('--no_flip', action='store_true', help='if specified, do not flip the images for data argumentation')
+parser.add_argument('--ignore_index', type=int, default=-100, help='mask this class without contributing to nll_loss')
+parser.add_argument('--unsup_portion', type=int, default=9, help='portion of unsupervised, range=0,...,10')
+parser.add_argument('--portion_total', type=int, default=10, help='total portion of unsupervised, e.g., 10')
+parser.add_argument('--unsup_sampler', type=str, default='sep', help='unif, sep, unif_ignore')
+
+################################
+# train settings
+################################
+parser.add_argument('--name', type=str, default='experiment_name', help='name of the experiment. It decides where to store samples and models')
+parser.add_argument('--checkpoints_dir', default='ckpt', help='folder to output images and model checkpoints')
+parser.add_argument('--save_every', default=2, type=int, help='')
+parser.add_argument('--manual_seed', type=int, default=123, help='manual seed')
+parser.add_argument('--start_epoch', type=int, default=0, help='epoch number to start with')
+parser.add_argument('--nThreads', default=4, type=int, help='# threads for loading data')
+parser.add_argument('--gpu_ids', type=str, default='', help='gpu ids: e.g. 0; 0,2')
+
+################################
+# model settings
+################################
+parser.add_argument('--batchSize', type=int, default=1, help='input batch size')
+parser.add_argument('--widthSize', type=int, default=256, help='crop to this width')
+parser.add_argument('--heightSize', type=int, default=256, help='crop to this height')
+parser.add_argument('--input_nc', type=int, default=3, help='# of input image channels')
+parser.add_argument('--output_nc', type=int, default=20, help='# of output image channels')
+parser.add_argument('--nz', type=int, default=100, help='size of the latent z vector')
+parser.add_argument('--net_chp', default='', help="path to nets (to continue training)")
+parser.add_argument('--use_dropout', action='store_true', help='use dropout for the generator')
+parser.add_argument('--ngf', type=int, default=64, help='# of gen filters in first conv layer')
+parser.add_argument('--ndf', type=int, default=64, help='# of discrim filters in first conv layer')
+parser.add_argument('--noise', default='sphere', help='normal|sphere')
+
+################################
+# external
+################################
+parser.add_argument('--display_winsize', type=int, default=256,  help='display window size')
+parser.add_argument('--display_id', type=int, default=1, help='window id of the web display')
+parser.add_argument('--port', type=int, default=8097, help='port of visdom')
+parser.add_argument('--no_html', action='store_true', help='do not save intermediate training results to [opt.checkpoints_dir]/[opt.name]/web/')
+
+# opt
+opt = parser.parse_args()
+opt.isTrain = True
+
+assert(opt.unsup_sampler == 'sep')
+assert(opt.unsup_portion > 0)
+
+def get_opt():
+    return opt
 
 #########################################################################
 def normalize_(x, dim=1):
@@ -13,10 +81,6 @@ def normalize(x, dim=1):
 def var(x, dim=0):
     x_zero_meaned = x - x.mean(dim).expand_as(x)
     return x_zero_meaned.pow(2).mean(dim)
-
-def populate_x(x, dataloader):
-    real_cpu = dataloader.next()
-    x.data.resize_(real_cpu.size()).copy_(real_cpu)
 
 def populate_xy(x, y_int, dataloader, opt):
     # x, y are Variable
@@ -32,15 +96,10 @@ def populate_xy(x, y_int, dataloader, opt):
         y_int.data.copy_(y_cpu)
 
 def populate_z(z, opt):
-    z.data.resize_(opt.batch_size, opt.nz, 1, 1)
+    z.data.resize_(opt.batchSize, opt.nz, 1, 1)
     z.data.normal_(0, 1)
     if opt.noise == 'sphere':
         normalize_(z.data)
-
-def one_hot(y, y_int):
-    y_temp = y_int.unsqueeze(dim=1)
-    y.data.zero_()
-    y.scatter_(1, y_temp, 1)
 
 def create_losses(opt):
     CE = torch.nn.NLLLoss2d(ignore_index=opt.ignore_index)
@@ -244,7 +303,7 @@ class GYZ2X(nn.Module):
 
 # net X, Y, Z -> score/feat: D(X,Y,Z)
 class DXYZ(nn.Module):
-    def __init__(self, nx, ny, nz, ndf, gpu_ids=[]):
+    def __init__(self, nx, ny, nz, ngf, ndf, gpu_ids=[]):
         super(DXYZ, self).__init__()
         self.gpu_ids = gpu_ids
 
@@ -252,7 +311,7 @@ class DXYZ(nn.Module):
         self.conv_y = BranchX(ny, ndf, gpu_ids)
 
         self.branch_combined = nn.Sequential(
-            nn.Linear(nx+ny+nz, ndf * 2),
+            nn.Linear(ngf*8+ngf*8+nz, ndf * 2),
             nn.LeakyReLU(0.2, inplace=True),
             nn.Linear(ndf * 2, 1),
             nn.Sigmoid()
