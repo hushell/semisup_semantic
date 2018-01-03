@@ -11,6 +11,7 @@ from torch.autograd import Variable
 from age_nets import *
 
 opt = get_opt()
+stage_str = ('F' if opt.update_F else '') + ('HG' if opt.update_HG else '') + ('D' if opt.update_D else '')
 
 # gpu id
 os.environ['CUDA_VISIBLE_DEVICES'] = opt.gpu_ids # absolute ids
@@ -20,10 +21,10 @@ if len(opt.gpu_ids) > 0:
 opt.gpu_ids = range(0,len(opt.gpu_ids)) # new range starting from 0
 
 #########################################################################
+# data_loaders
 from data.data_loader import CreateDataLoader,InfiniteDataLoader,XYDataLoader
 from util.visualizer import Visualizer
 
-# data_loaders
 opt.phase = 'val'
 opt.isTrain = False
 val_loader = CreateDataLoader(opt)
@@ -36,7 +37,6 @@ x_loader = XYDataLoader(opt, is_paired=False) # will use x only
 y_loader = XYDataLoader(opt, is_paired=False) # will use y only
 
 # wrap with infinite loader
-val_loader = InfiniteDataLoader(val_loader)
 paired_loader = InfiniteDataLoader(paired_loader)
 x_loader = InfiniteDataLoader(x_loader)
 y_loader = InfiniteDataLoader(y_loader)
@@ -45,21 +45,31 @@ y_loader = InfiniteDataLoader(y_loader)
 visualizer = Visualizer(opt)
 
 #########################################################################
+# networks
 TAU0 = 1.0
 
-# networks
 net =dict()
-
 net['F'] = GX2Y(opt, temperature=TAU0)
 net['H'] = GX2Z(opt.input_nc, opt.nz, opt.ngf, opt.gpu_ids)
 net['G'] = GYZ2X(opt.input_nc, opt.output_nc, opt.nz, opt.ngf, opt.gpu_ids)
 net['D'] = DXYZ(opt.input_nc, opt.output_nc, opt.nz, opt.ngf, opt.ndf, opt.gpu_ids)
 
 for k in net.keys():
+    if len(opt.gpu_ids) > 0:
+        net[k].cuda(opt.gpu_ids[0])
     net[k].apply(weights_init)
     net[k].train()
-    if opt.net_chp != '':
-        net[k].load_state_dict(torch.load(opt.net_chp + '_' + k).state_dict())
+    weights_fpath = os.path.join(opt.checkpoints_dir, 'net%s_stage%s.pth' % (k,stage_str))
+    if os.path.exists(weights_fpath):
+        net[k].load_state_dict(torch.load(weights_fpath, map_location=lambda storage, loc: storage))
+
+# DEBUG
+if not opt.update_F:
+    for param in net['F'].parameters():
+        param.requires_grad = False
+
+## DEBUG
+#FF = net['F'].state_dict()
 
 #########################################################################
 # variables
@@ -101,7 +111,9 @@ v = AGEModel()
 # optimizers
 optimizer = dict()
 for k in net.keys():
-    optimizer[k] = optim.Adam(net[k].parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
+    #optimizer[k] = optim.Adam(filter(lambda p: p.requires_grad, net[k].parameters()), lr=opt.lr, betas=(opt.beta1, 0.999))
+    if getattr(opt, 'update_%s' % k):
+        optimizer[k] = optim.Adam(net[k].parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
 
 def adjust_lr(epoch):
     if epoch % opt.drop_lr == (opt.drop_lr - 1):
@@ -115,8 +127,6 @@ def adjust_lr(epoch):
 CE, L1, KL =  create_losses(opt)
 
 #########################################################################
-D_ITERS = 5 # TODO: dynamic trick
-G_ITERS = 1
 CLAMP_LOW = -0.01
 CLAMP_UPP = 0.01
 ANNEAL_RATE=0.00003
@@ -146,22 +156,31 @@ def evaluation():
     if len(opt.gpu_ids) > 0:
         x = x.cuda(opt.gpu_ids[0])
         y_int = y_int.cuda(opt.gpu_ids[0])
-    x = Variable(x)
-    y_int = Variable(y_int)
+    x = Variable(x, volatile=True)
+    y_int = Variable(y_int, volatile=True)
+
+    ## DEBUG
+    #for v1,v2 in zip(FF.values(), net['F'].state_dict().values()):
+    #    if not torch.equal(v1,v2):
+    #        print('*** netF MODIFIED!')
+    #print('*** netF checked!')
+    #opt.DEBUG = True
 
     net['F'].eval()
     eval_stats = SegmentationMeter(n_class=opt.output_nc, ignore_index=opt.ignore_index)
     E_loss_CE = []
 
     start_time = time.time()
+    val_loader_iter = iter(val_loader)
     for i in range(len(val_loader)):
-        populate_xy(x, y_int, val_loader, opt)
+        populate_xy(x, y_int, val_loader_iter, opt)
         y_hat = net['F'](x)
         E_loss_CE.append( CE(y_hat, y_int) )
         logits = y_hat.data.cpu().numpy()
         pred = logits.argmax(1) # NCHW -> NHW
         gt = y_int.data.cpu().numpy()
         eval_stats.update_confmat(gt, pred)
+    print(x.mean(),logits.mean(),gt.mean()) # DEBUG: x,gt same; logits diff every other epoch
 
     print('EVAL ==> average CE = %.3f' % (sum(E_loss_CE).data[0] / len(val_loader)))
     eval_results = eval_stats.get_eval_results()
@@ -169,25 +188,55 @@ def evaluation():
                 (len(val_loader), time.time()-start_time, eval_results[0])
     msg += 'Per-class IoU:\n'
     msg += ''.join(['%s: %.2f\n' % (cname,ciu)
-                    for cname,ciu in zip(val_loader.dataloader.dataset.label2name, eval_results[1])])
+                    for cname,ciu in zip(val_loader.dataset.label2name, eval_results[1])])
     print(msg)
     with open(visualizer.log_name, "a") as log_file:
         log_file.write('%s' % msg)
 
     net['F'].train()
+    #opt.DEBUG = False
 
+from util.util import tensor2lab
+def display_imgs(images, epoch, i, subset='train', do_save=0):
+    for k, im in images.items():
+        if 'y' in k:
+            images[k] = tensor2lab(im, val_loader.dataset.label2color) # 3HW
+        elif 'x' in k:
+            images[k] = im[0] # 3HW
+            d_mean = torch.FloatTensor(val_loader.dataset.mean).view(-1,1,1) # (3) -> (3,1,1)
+            d_std = torch.FloatTensor(val_loader.dataset.std).view(-1,1,1)
+            images[k] *= d_std
+            images[k] += d_mean
+            images[k] = images[k].mul(255).clamp(0,255).byte().numpy() # 3HW
+    visualizer.display_current_results(images, epoch, i, subset=subset, do_save=do_save)
+
+#########################################################################
 # main loop
-stats = {}
+#for _ in range(3): # DEBUG
+#    evaluation()
+stats = {'D':0, 'G':0, 'P_CE':0, 'A_CE':0, 'P_L1':0, 'A_L1':0}
+g_it = 0
 for epoch in range(opt.start_epoch, opt.niter):
 
     # on begin epoch
     adjust_lr(epoch)
-    net['F'].temperature = np.maximum(TAU0*np.exp(-ANNEAL_RATE*epoch),MIN_TEMP)
     print('netF.temperature = %.6f' % net['F'].temperature)
     epoch_start_time = time.time()
 
     for i in range(len(x_loader)):
         iter_start_time = time.time()
+
+        if g_it % 100 == 0:
+            #net['F'].temperature = np.maximum(TAU0*np.exp(-ANNEAL_RATE*g_it),MIN_TEMP)
+            net['F'].temperature = MIN_TEMP # DEBUG
+
+        if g_it < 25 or g_it % 500 == 0:
+            D_ITERS, G_ITERS = 100, 1
+        else:
+            D_ITERS, G_ITERS = 5, 1
+
+        if not opt.update_D:
+            D_ITERS = 0
 
         # ---------------------------
         #        Optimize over D
@@ -218,66 +267,77 @@ for epoch in range(opt.start_epoch, opt.niter):
             g_losses = []
 
             def update_FGH():
-                optimizer['F'].zero_grad()
-                optimizer['G'].zero_grad()
-                optimizer['H'].zero_grad()
+                global g_it
+                if opt.update_F:
+                    optimizer['F'].zero_grad()
+                if opt.update_HG:
+                    optimizer['G'].zero_grad()
+                    optimizer['H'].zero_grad()
                 sum(g_losses).backward()
-                optimizer['F'].step()
-                optimizer['G'].step()
-                optimizer['H'].step()
+                if opt.update_F:
+                    optimizer['F'].step()
+                if opt.update_HG:
+                    optimizer['G'].step()
+                    optimizer['H'].step()
                 del g_losses[:]
+                g_it += 1
 
             # paired X, Y
             populate_xy(v.x, v.y_int, paired_loader, opt)
-            z_hat = net['H'](v.x) # B x nz
-            y_hat = net['F'](v.x)
 
-            paired_loss_CE = CE(y_hat, v.y_int)
-            g_losses.append( LAMBDA_CE * paired_loss_CE ) # CE
+            if opt.update_F:
+                y_hat = net['F'](v.x) # log p(y | x)
+                paired_loss_CE = CE(y_hat, v.y_int)
+                g_losses.append( LAMBDA_CE * paired_loss_CE ) # CE
+                stats['P_CE'] = paired_loss_CE.data[0]
 
-            paired_loss_KL = KL(net['H'].mu, net['H'].logvar, num_pixs)
-            g_losses.append( paired_loss_KL ) # KL
+            if opt.update_HG: # log p(x | y)
+                z_hat = net['H'](v.x) # B x nz
+                paired_loss_KL = KL(net['H'].mu, net['H'].logvar, num_pixs)
+                g_losses.append( paired_loss_KL ) # KL
+                stats['P_KL'] = paired_loss_KL.data[0]
 
-            v.one_hot()
-            v.noise_y()
-            x_hat = net['G']( [v.y, z_hat.view_as(v.z)] )
-            paired_loss_L1 = L1(x_hat, v.x)
-            g_losses.append( paired_loss_L1 ) # L1
+                v.one_hot()
+                v.noise_y()
+                x_hat = net['G']( [v.y, z_hat.view_as(v.z)] ) # TODO: try v.z?
+                paired_loss_L1 = L1(x_hat, v.x)
+                g_losses.append( paired_loss_L1 ) # L1
+                stats['P_L1'] = paired_loss_L1.data[0]
 
             update_FGH()
-
-            stats['P_CE'] = paired_loss_CE.data[0]
-            stats['P_KL'] = paired_loss_KL.data[0]
-            stats['P_L1'] = paired_loss_L1.data[0]
 
             # X, Y augmented
-            x_hat,y_hat,z_hat = populate_xyz_hat() # also x, y, y_int, z, but x_hat != x, y_hat != y
+            # TODO: coeffs for g_losses
+            if opt.update_HG and False: # log p(x) DEBUG
+                x_hat,y_hat,z_hat = populate_xyz_hat() # also x, y, y_int, z, but x_hat != x, y_hat != y
 
-            x_tilde = net['G']( [y_hat, z_hat.view_as(v.z)] ) # x -> y_hat, z_hat -> x_tilde
-            aug_loss_L1 = L1(x_tilde, v.x)
-            g_losses.append( aug_loss_L1 ) # L1
+                x_tilde = net['G']( [y_hat, z_hat.view_as(v.z)] ) # x -> y_hat, z_hat -> x_tilde
+                aug_loss_L1 = L1(x_tilde, v.x)
+                g_losses.append( aug_loss_L1 ) # L1
 
-            y_tilde = net['F'](x_hat) # y,z -> x_hat -> y_tilde
-            aug_loss_CE = CE(y_tilde, v.y_int)
-            g_losses.append( aug_loss_CE ) # CE
+                y_tilde = net['F'](x_hat) # y,z -> x_hat -> y_tilde
+                aug_loss_CE = CE(y_tilde, v.y_int)
+                g_losses.append( aug_loss_CE ) # CE
 
-            #z_tilde = net['H'](x_hat) # y,z -> x_hat -> z_tilde
-            #aug_loss_KL = (v.z - net['H'].mu).pow(2).div(net['H'].logvar.exp().mul(2)).mean()
-            #g_losses.append( aug_loss_KL ) # Gaussian
+                #z_tilde = net['H'](x_hat) # y,z -> x_hat -> z_tilde
+                #aug_loss_KL = (v.z - net['H'].mu).pow(2).div(net['H'].logvar.exp().mul(2)).mean()
+                #g_losses.append( aug_loss_KL ) # Gaussian
 
-            E_q_G = net['D']( [v.x, y_hat, z_hat] ).mean()
-            E_p_G = net['D']( [x_hat, v.y, v.z.view_as(z_hat)] ).mean()
-            g_loss = (E_q_G - E_p_G).pow(2)
-            g_losses.append( g_loss )
+                stats['A_CE'] = aug_loss_CE.data[0]
+                #stats['A_KL'] = aug_loss_KL.data[0]
+                stats['A_L1'] = aug_loss_L1.data[0]
 
-            update_FGH()
+                if opt.update_D:
+                    E_q_G = net['D']( [v.x, y_hat, z_hat] ).mean() # TODO: try D(x,y,z)
+                    E_p_G = net['D']( [x_hat, v.y, v.z.view_as(z_hat)] ).mean()
+                    g_loss = (E_q_G - E_p_G).pow(2)
+                    g_losses.append( g_loss )
 
-            stats['A_CE'] = aug_loss_CE.data[0]
-            #stats['A_KL'] = aug_loss_KL.data[0]
-            stats['A_L1'] = aug_loss_L1.data[0]
-            ##stats['E_q_G'] = E_q_G.data[0]
-            ##stats['E_p_G'] = E_p_G.data[0]
-            stats['G'] = g_loss.data[0]
+                    ##stats['E_q_G'] = E_q_G.data[0]
+                    ##stats['E_p_G'] = E_p_G.data[0]
+                    stats['G'] = g_loss.data[0]
+
+                update_FGH()
 
         # time spent per sample
         t = (time.time() - iter_start_time) / opt.batchSize
@@ -293,6 +353,16 @@ for epoch in range(opt.start_epoch, opt.niter):
                             niter=len(x_loader),
                             **stats))
 
+            ## visualization
+            #if opt.update_HG:
+            #    images = {'x':v.x.data.cpu(), 'x_hat':x_hat.data.cpu(), 'x_tilde':x_tilde.data.cpu(),
+            #              'y':v.y_int.data.cpu().numpy(), 'y_hat':y_hat.data.cpu().numpy().argmax(1),
+            #              'y_tilde':y_tilde.data.cpu().numpy().argmax(1)}
+            #else:
+            #    images = {'x':v.x.data.cpu(),
+            #              'y':v.y_int.data.cpu().numpy(), 'y_hat':y_hat.data.cpu().numpy().argmax(1)}
+            #display_imgs(images, epoch, i)
+
     # on end epoch
     print('===> End of epoch %d / %d \t Time Taken: %.2f sec\n' % \
                 (epoch, opt.niter, time.time() - epoch_start_time))
@@ -300,4 +370,8 @@ for epoch in range(opt.start_epoch, opt.niter):
     # evaluation & save
     if epoch % opt.save_every == 0:
         evaluation()
+        evaluation() # DEBUG
+        for k in net.keys():
+            weights_fpath = os.path.join(opt.checkpoints_dir, 'net%s_stage%s.pth' % (k,stage_str))
+            torch.save(net[k].state_dict(), weights_fpath)
 

@@ -37,6 +37,9 @@ parser.add_argument('--manual_seed', type=int, default=123, help='manual seed')
 parser.add_argument('--start_epoch', type=int, default=0, help='epoch number to start with')
 parser.add_argument('--nThreads', default=4, type=int, help='# threads for loading data')
 parser.add_argument('--gpu_ids', type=str, default='', help='gpu ids: e.g. 0; 0,2')
+parser.add_argument('--update_HG', action='store_true', help='update net H & G')
+parser.add_argument('--update_D', action='store_true', help='update net D')
+parser.add_argument('--update_F', action='store_true', help='update net F')
 
 ################################
 # model settings
@@ -47,7 +50,6 @@ parser.add_argument('--heightSize', type=int, default=256, help='crop to this he
 parser.add_argument('--input_nc', type=int, default=3, help='# of input image channels')
 parser.add_argument('--output_nc', type=int, default=20, help='# of output image channels')
 parser.add_argument('--nz', type=int, default=100, help='size of the latent z vector')
-parser.add_argument('--net_chp', default='', help="path to nets (to continue training)")
 parser.add_argument('--use_dropout', action='store_true', help='use dropout for the generator')
 parser.add_argument('--ngf', type=int, default=64, help='# of gen filters in first conv layer')
 parser.add_argument('--ndf', type=int, default=64, help='# of discrim filters in first conv layer')
@@ -64,6 +66,9 @@ parser.add_argument('--no_html', action='store_true', help='do not save intermed
 # opt
 opt = parser.parse_args()
 opt.isTrain = True
+opt.checkpoints_dir = opt.checkpoints_dir + '/' + opt.name
+opt.update_H = True if opt.update_HG else False
+opt.update_G = opt.update_H
 
 assert(opt.unsup_sampler == 'sep')
 assert(opt.unsup_portion > 0)
@@ -94,6 +99,8 @@ def populate_xy(x, y_int, dataloader, opt):
     if y_int is not None:
         y_cpu = real_cpu['B' if AtoB else 'A']
         y_int.data.copy_(y_cpu)
+    #if opt.DEBUG:
+    #    print(real_cpu['A_paths'])
 
 def populate_z(z, opt):
     z.data.resize_(opt.batchSize, opt.nz, 1, 1)
@@ -314,7 +321,7 @@ class DXYZ(nn.Module):
             nn.Linear(ngf*8+ngf*8+nz, ndf * 2),
             nn.LeakyReLU(0.2, inplace=True),
             nn.Linear(ndf * 2, 1),
-            nn.Sigmoid()
+            #nn.Sigmoid()
         )
 
         def _forward(input):
