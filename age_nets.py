@@ -88,25 +88,50 @@ def var(x, dim=0):
     return x_zero_meaned.pow(2).mean(dim)
 
 def populate_xy(x, y_int, dataloader, opt):
-    # x, y are Variable
     AtoB = opt.which_direction == 'AtoB'
     real_cpu = dataloader.next()
     if x is not None:
         x_cpu = real_cpu['A' if AtoB else 'B']
         #x.data.resize_(x_cpu.size()).copy_(x_cpu)
-        assert(x.data.size() == x_cpu.size())
-        x.data.copy_(x_cpu)
+        assert(x.size() == x_cpu.size())
+        x.copy_(x_cpu)
     if y_int is not None:
         y_cpu = real_cpu['B' if AtoB else 'A']
-        y_int.data.copy_(y_cpu)
+        assert(y_int.size() == y_cpu.size())
+        y_int.copy_(y_cpu)
     #if opt.DEBUG:
     #    print(real_cpu['A_paths'])
 
 def populate_z(z, opt):
-    z.data.resize_(opt.batchSize, opt.nz, 1, 1)
-    z.data.normal_(0, 1)
+    z.resize_(opt.batchSize, opt.nz, 1, 1)
+    z.normal_(0, 1)
     if opt.noise == 'sphere':
-        normalize_(z.data)
+        normalize_(z)
+
+def one_hot(y_int, opt):
+    ''' y_int is a Variable '''
+    y_temp = y_int.unsqueeze(dim=1)
+    y = torch.FloatTensor(opt.batchSize, opt.output_nc, opt.heightSize, opt.widthSize)
+    if len(opt.gpu_ids) > 0:
+        y = y.cuda()
+    y.zero_().scatter_(1, y_temp, 1)
+    return y
+
+def gumbel_softmax(log_probs, temperature=1.0, gpu_ids=[], eps=1e-20):
+    ''' log_probs is a Variable '''
+    # Gumbel(0,1): -log( -log(U + eps) + eps )
+    noise = torch.rand(log_probs.size())
+    noise.add_(eps).log_().neg_()
+    noise.add_(eps).log_().neg_()
+    if len(gpu_ids) > 0:
+        noise = noise.cuda()
+    noise = Variable(noise)
+    return nn.LogSoftmax()((log_probs + noise) / temperature)
+
+def noise_log_y(y, temperature=1.0, gpu_ids=[], eps=1e-20):
+    ''' y is a Variable '''
+    log_probs_gt = torch.log(y + eps)
+    return gumbel_softmax(log_probs_gt, temperature, gpu_ids, eps) # add noise
 
 def create_losses(opt):
     CE = torch.nn.NLLLoss2d(ignore_index=opt.ignore_index)
@@ -148,22 +173,14 @@ class GX2Y(nn.Module):
 
         def _forward(x):
             log_probs = self.resnet(x) # logsoftmax
-            log_probs = self.reparameterize(log_probs)
-            return log_probs
+            noisy_log_probs = self.reparameterize(log_probs)
+            return noisy_log_probs
 
         self.model = _forward
 
-    def reparameterize(self, log_probs, eps=1e-20):
+    def reparameterize(self, log_probs):
         if self.training:
-            # Gumbel(0,1): -log( -log(U + eps) + eps )
-            noise = torch.rand(log_probs.size())
-            noise.add_(eps).log_().neg_()
-            noise.add_(eps).log_().neg_()
-            if len(self.gpu_ids) > 0:
-                noise = noise.cuda()
-            noise = Variable(noise)
-            sample_y = (log_probs + noise) / self.temperature
-            return self.logsoftmax(sample_y)
+            return gumbel_softmax(log_probs, self.temperature, self.gpu_ids)
         else:
             return log_probs
 
