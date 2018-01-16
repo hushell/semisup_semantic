@@ -59,10 +59,13 @@ for k in net.keys():
         net[k].cuda(opt.gpu_ids[0])
 
     net[k].apply(weights_init)
+
+    # load if found saved weights
     weights_fpath = os.path.join(opt.checkpoints_dir, 'net%s_stage%s.pth' % (k,stage_str))
     if os.path.exists(weights_fpath):
         net[k].load_state_dict(torch.load(weights_fpath, map_location=lambda storage, loc: storage))
 
+    # freeze some nets
     if getattr(opt, 'update_%s' % k):
         net[k].train()
         for param in net[k].parameters():
@@ -93,21 +96,22 @@ for k in net.keys():
         optimizer[k] = optim.Adam(net[k].parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
 
 def adjust_lr(epoch):
-    if epoch % opt.drop_lr == (opt.drop_lr - 1):
-        opt.lr /= 2
-        for k in optimizer.keys():
-            for param_group in optimizer[k].param_groups:
-                param_group['lr'] = opt.lr
-        print('===> Start of epoch %d / %d \t lr = %.6f' % (epoch, opt.niter, opt.lr))
+    #if epoch % opt.drop_lr == (opt.drop_lr - 1):
+    #    opt.lr /= 2
+    #    for k in optimizer.keys():
+    #        for param_group in optimizer[k].param_groups:
+    #            param_group['lr'] = opt.lr
+    #    print('===> Start of epoch %d / %d \t lr = %.6f' % (epoch, opt.niter, opt.lr))
+    print('===> Start of epoch %d / %d \t lr = %.6f' % (epoch, opt.niter, opt.lr))
 
 # losses
-CE, L1, KL =  create_losses(opt)
+CE, L1, KL = create_losses(opt)
 
 #########################################################################
 CLAMP_LOW = -0.01
 CLAMP_UPP = 0.01
-ANNEAL_RATE=0.00003
-MIN_TEMP=0.5
+ANNEAL_RATE = 0.00003
+MIN_TEMP = 0.5
 LAMBDA_CE = 10.0
 num_pixs = opt.batchSize * opt.heightSize * opt.widthSize
 
