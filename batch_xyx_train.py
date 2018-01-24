@@ -94,10 +94,10 @@ def batch_train(lrs, lambda_xs, stage_str):
             lrFGD = '%.1e,%.1e,%.1e' % (lr, lr, lr)
 
         for j,lb in enumerate(lambda_xs):
-            cmd = "%s xyx_train.py --name xyx --checkpoints_dir ./checkpoints --output_nc %d --dataset %s --batchSize %d " \
+            cmd = "%s xyx_train.py --name %s --checkpoints_dir ./checkpoints --output_nc %d --dataset %s --batchSize %d " \
                   "--heightSize %d --widthSize %d --niter %d --drop_lr %d --resize_or_crop flip " \
                   "--port %d --gpu_ids %s --lrFGD %s --lambda_x %.3f --stage %s" \
-                % (pybin, opt.output_nc, opt.dataset, opt.batchSize, \
+                % (pybin, opt.name, opt.output_nc, opt.dataset, opt.batchSize, \
                    opt.heightSize, opt.widthSize, opt.niter, opt.drop_lr, \
                    opt.port, opt.gpu_ids, lrFGD, lb, stage_str)
             print(cmd + '\n')
@@ -148,7 +148,8 @@ print('\n==> Stage F: mIoU = %f by lr_F = %.1e\n' % (F_max_ious.max(), lr_F))
 #----------------------------------------------------------------
 # stage F:1,G:2,D:2: freeze F, update G & D --> lr_GD
 # TODO: check L1 rather than IoU
-lrs = [1e-3, 1e-4, 1e-5]
+#lrs = [1e-3, 1e-4, 1e-5]
+lrs = [1e-4] # DEBUG
 stage_str = 'F:1,G:2,D:2'
 
 for lr in lrs:
@@ -161,7 +162,7 @@ for lr in lrs:
 GD_max_ious = batch_train(lrs, [1.0], stage_str)
 arg_lr_GD = GD_max_ious.argmax(axis=0)
 lr_GD = lrs[arg_lr_GD[0]] # **opt lr_GD
-lr_GD = 1e-4 # DEBUG
+#lr_GD = 1e-4 # DEBUG
 
 lrFGD = '%.1e,%.1e,%.1e' % (lr_GD, lr_GD, lr_GD)
 stageGD_name = opt.name + '_%s_b%d/stage%s/lrFGD%s_lbX%.3f' % (opt.dataset, opt.batchSize, stage_str, lrFGD, 1.0)

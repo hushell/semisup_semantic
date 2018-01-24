@@ -124,7 +124,7 @@ def populate_xy_hat(temperature):
     return (v_x, v_y_int, log_y, y_hat)
 
 from util.meter import SegmentationMeter
-def evaluation():
+def evaluation(epoch):
     xx = torch.FloatTensor(1, opt.input_nc, opt.heightSize, opt.widthSize)
     yy_int = torch.LongTensor(1, opt.heightSize, opt.widthSize)
     if len(opt.gpu_ids) > 0:
@@ -148,10 +148,16 @@ def evaluation():
         gt = yy_int.cpu().numpy()
         eval_stats.update_confmat(gt, pred)
 
-    print('EVAL ==> average CE = %.3f' % (sum(E_loss_CE).data[0] / len(val_loader)))
+        # visualization
+        if i % 10 == 0:
+            images = {'TEST_x':v_x.data.cpu(),
+                      'TEST_y':v_y_int.data.cpu().numpy(), 'TEST_y_hat':y_hat.data.cpu().numpy().argmax(1)}
+            display_imgs(images, epoch, i, do_save=2)
+
+    print('EVAL at epoch %d ==> average CE = %.3f' % (epoch, sum(E_loss_CE).data[0] / len(val_loader)))
     eval_results = eval_stats.get_eval_results()
-    msg = 'EVAL [%d images in %.2f sec] ==> %s\n' % \
-                (len(val_loader), time.time()-start_time, eval_results[0])
+    msg = 'EVAL at epoch %d [%d images in %.2f sec] ==> %s\n' % \
+                (epoch, len(val_loader), time.time()-start_time, eval_results[0])
     msg += 'Per-class IoU:\n'
     msg += ''.join(['%s: %.2f\n' % (cname,ciu)
                     for cname,ciu in zip(val_loader.dataset.label2name, eval_results[1])])
@@ -177,7 +183,7 @@ def display_imgs(images, epoch, i, subset='train', do_save=0):
     visualizer.display_current_results(images, epoch, i, subset=subset, do_save=do_save)
 
 #########################################################################
-evaluation()
+evaluation(0)
 
 # main loop
 stats = {'D':0, 'G':0, 'P_CE':0, 'A_CE':0, 'P_L1':0, 'A_L1':0}
@@ -332,7 +338,8 @@ for epoch in range(opt.start_epoch, opt.niter):
 
     # evaluation & save
     if epoch % opt.save_every == 0:
-        evaluation()
+        evaluation(epoch)
+        visualizer.save_webpage(prefix='train') # visualizer maintains a img_dict to be saved in webpage
         for k in net.keys():
             if opt.updates[k] == 2:
                 weights_fpath = os.path.join(opt.checkpoints_dir, opt.name, 'net%s.pth' % (k))

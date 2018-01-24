@@ -33,7 +33,7 @@ parser.add_argument('--unsup_sampler', type=str, default='sep', help='unif, sep,
 ################################
 parser.add_argument('--name', type=str, default='xyx', help='name of the experiment. It decides where to store samples and models')
 parser.add_argument('--checkpoints_dir', default='ckpt', help='folder to output images and model checkpoints')
-parser.add_argument('--save_every', default=2, type=int, help='')
+parser.add_argument('--save_every', default=10, type=int, help='')
 parser.add_argument('--manual_seed', type=int, default=123, help='manual seed')
 parser.add_argument('--start_epoch', type=int, default=0, help='epoch number to start with')
 parser.add_argument('--nThreads', default=4, type=int, help='# threads for loading data')
