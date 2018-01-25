@@ -125,8 +125,10 @@ def populate_xy_hat(temperature):
 
 from util.meter import SegmentationMeter
 def evaluation(epoch):
-    xx = torch.FloatTensor(1, opt.input_nc, opt.heightSize, opt.widthSize)
-    yy_int = torch.LongTensor(1, opt.heightSize, opt.widthSize)
+    heightSize = val_loader.dataset.heightSize
+    widthSize = val_loader.dataset.widthSize
+    xx = torch.FloatTensor(1, opt.input_nc, heightSize, widthSize)
+    yy_int = torch.LongTensor(1, heightSize, widthSize)
     if len(opt.gpu_ids) > 0:
         xx = xx.cuda(opt.gpu_ids[0])
         yy_int = yy_int.cuda(opt.gpu_ids[0])

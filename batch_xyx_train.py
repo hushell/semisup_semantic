@@ -27,7 +27,7 @@ parser.add_argument('--niter_decay', type=int, default=100, help='# of iter to l
 ################################
 parser.add_argument('--dataset', type=str, default='cityscapesAB', help='chooses which dataset is loaded. [cityscapesAB | pascal | camvid]')
 parser.add_argument('--which_direction', type=str, default='AtoB', help='AtoB or BtoA')
-parser.add_argument('--resize_or_crop', type=str, default='resize_and_crop', help='scaling and cropping of images at load time [resize_and_crop|crop|scale_width|no_resize]')
+parser.add_argument('--resize_or_crop', type=str, default='crop', help='scaling and cropping of images at load time [resize_and_crop|crop|scale_width|no_resize]')
 parser.add_argument('--no_flip', action='store_true', help='if specified, do not flip the images for data argumentation')
 parser.add_argument('--ignore_index', type=int, default=-100, help='mask this class without contributing to nll_loss')
 parser.add_argument('--unsup_portion', type=int, default=9, help='portion of unsupervised, range=0,...,10')
@@ -94,11 +94,14 @@ def batch_train(lrs, lambda_xs, stage_str):
             lrFGD = '%.1e,%.1e,%.1e' % (lr, lr, lr)
 
         for j,lb in enumerate(lambda_xs):
+            # TODO: try dropout
             cmd = "%s xyx_train.py --name %s --checkpoints_dir ./checkpoints --output_nc %d --dataset %s --batchSize %d " \
-                  "--heightSize %d --widthSize %d --niter %d --drop_lr %d --resize_or_crop flip " \
+                  "--heightSize %d --widthSize %d --niter %d --drop_lr %d --resize_or_crop %s " \
+                  "--ignore_index %d --unsup_portion %d --portion_total %d --unsup_sampler %s " \
                   "--port %d --gpu_ids %s --lrFGD %s --lambda_x %.3f --stage %s" \
                 % (pybin, opt.name, opt.output_nc, opt.dataset, opt.batchSize, \
-                   opt.heightSize, opt.widthSize, opt.niter, opt.drop_lr, \
+                   opt.heightSize, opt.widthSize, opt.niter, opt.drop_lr, opt.resize_or_crop, \
+                   opt.ignore_index, opt.unsup_portion, opt.portion_total, opt.unsup_sampler, \
                    opt.port, opt.gpu_ids, lrFGD, lb, stage_str)
             print(cmd + '\n')
 
