@@ -1,0 +1,2 @@
+cityscapes:
+run batch_xyx_train.py --name xyx_0 --checkpoints_dir ./checkpoints --output_nc 20 --dataset cityscapesAB --batchSize 4 --heightSize 224 --widthSize 224 --niter 100 --resize_or_crop crop --ignore_index 0 --unsup_portion 89 --portion_total 90 --port 1236 --gpu_ids 2
