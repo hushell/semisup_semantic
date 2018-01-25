@@ -95,7 +95,8 @@ def adjust_lr(epoch):
     #    for k in optimizer.keys():
     #        for param_group in optimizer[k].param_groups:
     #            param_group['lr'] = opt.lr
-    print('===> Start of epoch %d / %d \t lr = %.6f' % (epoch, opt.niter, opt.lr))
+    #print('===> Start of epoch %d / %d \t lr = %.6f' % (epoch, opt.niter, opt.lr))
+    print('===> Start of epoch %d / %d \t lrFGD = %.1e,%.1e,%.1e' % (epoch, opt.niter, opt.lrFGD['F'], opt.lrFGD['G'], opt.lrFGD['D']))
 
 # losses
 CE, L1 = create_losses(opt)
