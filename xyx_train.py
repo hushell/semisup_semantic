@@ -60,6 +60,7 @@ for k in net.keys():
     # load if found saved weights
     weights_fpath = os.path.join(opt.checkpoints_dir, opt.name, 'net%s.pth' % (k))
     if os.path.exists(weights_fpath):
+        print('Load net[%s] from %s' % (k, weights_fpath))
         net[k].load_state_dict(torch.load(weights_fpath, map_location=lambda storage, loc: storage))
 
     # train or freeze

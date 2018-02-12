@@ -96,11 +96,11 @@ def batch_train(lrs, lambda_xs, stage_str):
         for j,lb in enumerate(lambda_xs):
             # TODO: try dropout
             cmd = "%s xyx_train.py --name %s --checkpoints_dir ./checkpoints --output_nc %d --dataset %s --batchSize %d " \
-                  "--heightSize %d --widthSize %d --niter %d --drop_lr %d --resize_or_crop %s " \
+                  "--heightSize %d --widthSize %d --start_epoch %d --niter %d --drop_lr %d --resize_or_crop %s " \
                   "--ignore_index %d --unsup_portion %d --portion_total %d --unsup_sampler %s " \
                   "--port %d --gpu_ids %s --lrFGD %s --lambda_x %.3f --stage %s" \
                 % (pybin, opt.name, opt.output_nc, opt.dataset, opt.batchSize, \
-                   opt.heightSize, opt.widthSize, opt.niter, opt.drop_lr, opt.resize_or_crop, \
+                   opt.heightSize, opt.widthSize, opt.start_epoch, opt.niter, opt.drop_lr, opt.resize_or_crop, \
                    opt.ignore_index, opt.unsup_portion, opt.portion_total, opt.unsup_sampler, \
                    opt.port, opt.gpu_ids, lrFGD, lb, stage_str)
             print(cmd + '\n')
