@@ -124,104 +124,126 @@ def batch_train(lrs, lambda_xs, stage_str):
     return max_ious
 
 #----------------------------------------------------------------
-# stage F:2,G:0,D:0 --> lr_F
-lrs = [1e-2, 1e-3, 1e-4]
+
+import re
+
+re_eval_miou = re.compile("\'Mean IoU\': \d+\.\d+")
+re_eval_CE   = re.compile("average CE = \d+\.\d+")
+re_DG   = re.compile("D/G: \d+\.\d+/\d+\.\d+")
+re_CE   = re.compile("P_CE/A_CE: \d+\.\d+/\d+\.\d+")
+re_L1   = re.compile("P_L1/A_L1: \d+\.\d+/\d+\.\d+")
+
+valid_experiments = range(2,25)
+#invalid_experiments = [10, 14, 18, 22]
+invalid_experiments = [24]
+valid_experiments = [x for x in valid_experiments if x not in invalid_experiments]
+print(valid_experiments)
+
+
+def load_log(name, stage_str, lrFGD, lb):
+    outfile = "../logs/%s_%s_b%d/stage%s_lrFGD%s_lb%.3f.log" \
+              % (name, opt.dataset, opt.batchSize, stage_str, lrFGD, lb)
+    #print(outfile)
+    #assert( os.path.exists(outfile) )
+    if not os.path.exists(outfile):
+        return [-9999]
+    with open(outfile, 'r') as log_f:
+        ious = re.findall(re_eval_miou, log_f.read())
+        ious = [float(iou.split(': ')[1]) for iou in ious]
+        return ious
+
+
+def load_max_over_lb(name, lrFGD, lambda_xs, stage_str):
+    all_ious = []
+    amax = -1
+    max_iou = -1
+
+    for j,lb in enumerate(lambda_xs):
+        ious = load_log(name, stage_str, lrFGD, lb)
+        all_ious.append(ious)
+        if max(ious) > max_iou:
+            max_iou = max(ious)
+            amax = j
+    #print('%s: max_iou = %f, amax = %d' % (name, max_iou, amax))
+    return all_ious[amax], amax
+
+
+def load_max_over_lr(name, lst_lrFGD, lb, stage_str):
+    all_ious = []
+    amax = -1
+    max_iou = -1
+
+    for j,lrFGD in enumerate(lst_lrFGD):
+        ious = load_log(name, stage_str, lrFGD, lb)
+        all_ious.append(ious)
+        if max(ious) > max_iou:
+            max_iou = max(ious)
+            amax = j
+    #print('%s: max_iou = %f, amax = %d' % (name, max_iou, amax))
+    return all_ious[amax], amax
+
+
+#----------------------------------------------------------------
+# stage F
 stage_str = 'F:2,G:0,D:0'
+lrs = [1e-2, 1e-3, 1e-4]
+lb = 1.0
 
-F_max_ious = batch_train(lrs, [1.0], stage_str)
+all_ious = []
+all_lr_F = []
 
-#arg_lr_F = np.unravel_index(F_max_ious.argmax(), F_max_ious.shape)
-arg_lr_F = F_max_ious.argmax(axis=0)
-lr_F = lrs[arg_lr_F[0]] # **opt lr_F
-#lr_F = 1e-3 # DEBUG
+for j,i in enumerate(valid_experiments):
+    name = '%s_%d' % (opt.name, i)
+    lst_lrFGD = ['%.1e,%.1e,%.1e' % (lr,lr,lr) for lr in lrs]
+    ious,amax = load_max_over_lr(name, lst_lrFGD, lb, stage_str)
+    all_ious.append(ious)
+    all_lr_F.append(lrs[amax])
 
-lrFGD = '%.1e,%.1e,%.1e' % (lr_F, lr_F, lr_F)
-stageF_name = opt.name + '_%s_b%d/stage%s/lrFGD%s_lbX%.3f' % (opt.dataset, opt.batchSize, stage_str, lrFGD, 1.0)
-F_stageF_path = os.path.join(opt.checkpoints_dir, stageF_name, 'netF.pth')
+F_ious = np.stack(all_ious, axis=0)
 
-print('\n==> Stage F: mIoU = %f by lr_F = %.1e\n' % (F_max_ious.max(), lr_F))
-
-#ipdb> F_max_ious
-#array([[ 0.73601473],
-#       [ 0.73649235],
-#       [ 0.68873321]])
-
-# 'Mean IoU': 0.72510022394608131
-
-sys.exit(0) # DEBUG
 
 #----------------------------------------------------------------
-# stage F:1,G:2,D:2: freeze F, update G & D --> lr_GD
-# TODO: check L1 rather than IoU
-#lrs = [1e-3, 1e-4, 1e-5]
-lrs = [1e-4] # DEBUG
+# stage GD
 stage_str = 'F:1,G:2,D:2'
+lr_GD = 1e-4
+all_lr_GD = [lr_GD] * len(valid_experiments)
 
-for lr in lrs:
-    lrFGD = '%.1e,%.1e,%.1e' % (lr, lr, lr)
-    stageGD_name = opt.name + '_%s_b%d/stage%s/lrFGD%s_lbX%.3f' % (opt.dataset, opt.batchSize, stage_str, lrFGD, 1.0)
-    F_stageGD_path = os.path.join(opt.checkpoints_dir, stageGD_name, 'netF.pth')
-    util.mkdir( os.path.dirname(F_stageGD_path) ) # mkdir if not exist
-    shutil.copy(F_stageF_path, F_stageGD_path)
-
-GD_max_ious = batch_train(lrs, [1.0], stage_str)
-arg_lr_GD = GD_max_ious.argmax(axis=0)
-lr_GD = lrs[arg_lr_GD[0]] # **opt lr_GD
-#lr_GD = 1e-4 # DEBUG
-
-lrFGD = '%.1e,%.1e,%.1e' % (lr_GD, lr_GD, lr_GD)
-stageGD_name = opt.name + '_%s_b%d/stage%s/lrFGD%s_lbX%.3f' % (opt.dataset, opt.batchSize, stage_str, lrFGD, 1.0)
-G_stageGD_path = os.path.join(opt.checkpoints_dir, stageGD_name, 'netG.pth')
-D_stageGD_path = os.path.join(opt.checkpoints_dir, stageGD_name, 'netD.pth')
-
-print('\n==> Stage GD: mIoU = %f by lr_GD = %.1e\n' % (GD_max_ious.max(), lr_GD))
 
 #----------------------------------------------------------------
-# stage F:2,G:1,D:1: freeze G & D, update F with lr_F --> lambda_x
-lambda_xs = [100, 10, 1, 1e-1, 1e-2]
-lrFGD = '%.1e,%.1e,%.1e' % (lr_F, lr_GD, lr_GD)
+# stage F2
 stage_str = 'F:2,G:1,D:1'
+lambda_xs = [100, 10, 1, 1e-1, 1e-2]
 
-for lb in lambda_xs:
-    stageF2_name = opt.name + '_%s_b%d/stage%s/lrFGD%s_lbX%.3f' % (opt.dataset, opt.batchSize, stage_str, lrFGD, lb)
-    F_stageF2_path = os.path.join(opt.checkpoints_dir, stageF2_name, 'netF.pth')
-    G_stageF2_path = os.path.join(opt.checkpoints_dir, stageF2_name, 'netG.pth')
-    D_stageF2_path = os.path.join(opt.checkpoints_dir, stageF2_name, 'netD.pth')
-    util.mkdir( os.path.dirname(F_stageF2_path) ) # mkdir if not exist
-    util.mkdir( os.path.dirname(G_stageF2_path) ) # mkdir if not exist
-    util.mkdir( os.path.dirname(D_stageF2_path) ) # mkdir if not exist
-    shutil.copy(G_stageGD_path, G_stageF2_path)
-    shutil.copy(D_stageGD_path, D_stageF2_path)
-    shutil.copy(F_stageF_path,  F_stageF2_path)
+all_ious = []
+all_lb = []
 
-F2_max_ious = batch_train([lrFGD], lambda_xs, stage_str)
-arg_lb_x = F2_max_ious.argmax(axis=1)
-lb_x = lambda_xs[arg_lb_x[0]] # **opt lb_x
-# lb_x = 10 # DEBUG
+for j,i in enumerate(valid_experiments):
+    name = '%s_%d' % (opt.name, i)
+    lrFGD = '%.1e,%.1e,%.1e' % (all_lr_F[j],all_lr_GD[j],all_lr_GD[j])
+    ious,amax = load_max_over_lb(name, lrFGD, lambda_xs, stage_str)
+    all_ious.append(ious)
+    all_lb.append(lambda_xs[amax])
 
-stageF2_name = opt.name + '_%s_b%d/stage%s/lrFGD%s_lbX%.3f' % (opt.dataset, opt.batchSize, stage_str, lrFGD, lb_x)
-F_stageF2_path = os.path.join(opt.checkpoints_dir, stageF2_name, 'netF.pth')
+F2_ious = np.stack(all_ious, axis=0)
 
-print('\n==> Stage F2: mIoU = %f by lb_x = %.3f\n' % (F2_max_ious.max(), lb_x))
 
 #----------------------------------------------------------------
-# stage F:2,G:2,D:2: update all nets with lr_F --> lambda_x
+# stage FGD
 stage_str = 'F:2,G:2,D:2'
-lrFGD = '%.1e,%.1e,%.1e' % (lr_F, lr_GD / lb_x, lr_GD / lb_x)
-stageFGD_name = opt.name + '_%s_b%d/stage%s/lrFGD%s_lbX%.3f' % (opt.dataset, opt.batchSize, stage_str, lrFGD, lb_x)
+all_ious = []
+gname = opt.name
+for j,i in enumerate(valid_experiments):
+    if i < 20:
+        continue
+    opt.name = '%s_%d' % (gname, i)
+    lb = all_lb[j]
+    lr_F = all_lr_F[j]
+    lr_GD = all_lr_GD[j]
+    lrFGD = '%.1e,%.1e,%.1e' % (lr_F, lr_GD / lb, lr_GD / lb)
+    #ious = load_log(name, stage_str, lrFGD, lb)
+    #all_ious.append(ious)
 
-F_stageFGD_path = os.path.join(opt.checkpoints_dir, stageFGD_name, 'netF.pth')
-G_stageFGD_path = os.path.join(opt.checkpoints_dir, stageFGD_name, 'netG.pth')
-D_stageFGD_path = os.path.join(opt.checkpoints_dir, stageFGD_name, 'netD.pth')
-util.mkdir( os.path.dirname(F_stageFGD_path) ) # mkdir if not exist
-util.mkdir( os.path.dirname(G_stageFGD_path) ) # mkdir if not exist
-util.mkdir( os.path.dirname(D_stageFGD_path) ) # mkdir if not exist
-shutil.copy(G_stageGD_path, G_stageFGD_path)
-shutil.copy(D_stageGD_path, D_stageFGD_path)
-shutil.copy(F_stageF2_path, F_stageFGD_path)
+    FGD_max_ious = batch_train([lrFGD], [lb], stage_str)
+    print('==> (%d) Stage FGD: mIoU = %f' % (j, FGD_max_ious.max()))
 
-FGD_max_ious = batch_train([lrFGD], [lb_x], stage_str)
-
-print('\n==> Stage FGD: mIoU = %f\n' % (FGD_max_ious.max()))
-
-# ==> Stage FGD: mIoU = 0.737043
+#FGD_ious = np.stack(all_ious, axis=0)
