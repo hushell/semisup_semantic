@@ -148,6 +148,8 @@ print('\n==> Stage F: mIoU = %f by lr_F = %.1e\n' % (F_max_ious.max(), lr_F))
 
 # 'Mean IoU': 0.72510022394608131
 
+exit() # DEBUG
+
 #----------------------------------------------------------------
 # stage F:1,G:2,D:2: freeze F, update G & D --> lr_GD
 # TODO: check L1 rather than IoU
