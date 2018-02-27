@@ -10,6 +10,7 @@ from torch.autograd import Variable
 from xyx_nets import *
 
 opt = get_opt()
+print(opt)
 
 # gpu id
 os.environ['CUDA_VISIBLE_DEVICES'] = opt.gpu_ids # absolute ids
@@ -55,7 +56,8 @@ for k in net.keys():
     if len(opt.gpu_ids) > 0:
         net[k].cuda(opt.gpu_ids[0])
 
-    net[k].apply(weights_init)
+    if k != 'F':
+        net[k].apply(weights_init)
 
     # load if found saved weights
     weights_fpath = os.path.join(opt.checkpoints_dir, opt.name, 'net%s.pth' % (k))
@@ -314,7 +316,7 @@ for epoch in range(opt.start_epoch, opt.niter):
         t = (time.time() - iter_start_time) / opt.batchSize
 
         if i % 10 == 0:
-            print('[{epoch}/{nepoch}][{iter}/{niter}] '
+            print('[{epoch}/{nepoch}][{iter}/{niter}] in {t:.3f} seconds '
                   'D/G: {D:.3f}/{G:.3f} '
                   'P_CE/A_CE: {P_CE:.3f}/{A_CE:.3f} '
                   'P_L1/A_L1: {P_L1:.3f}/{A_L1:.3f} '
@@ -322,6 +324,7 @@ for epoch in range(opt.start_epoch, opt.niter):
                             nepoch=opt.niter,
                             iter=i,
                             niter=len(x_loader),
+                            t=t,
                             **stats))
 
             # visualization
