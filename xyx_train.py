@@ -217,6 +217,7 @@ for epoch in range(opt.start_epoch, opt.niter):
         if opt.updates['D'] != 2:
             D_ITERS = 0
 
+        tt0 = time.time()
         # ---------------------------
         #        Optimize over D
         # ---------------------------
@@ -259,6 +260,7 @@ for epoch in range(opt.start_epoch, opt.niter):
                 del g_losses[:]
                 g_it += 1
 
+            tt1 = time.time()
             # ---------------------------
             # paired X, Y
             populate_xy(t_x, t_y_int, paired_loader, opt)
@@ -283,6 +285,7 @@ for epoch in range(opt.start_epoch, opt.niter):
 
             update_FG()
 
+            tt2 = time.time()
             # ---------------------------
             # X, Y augmented
             # TODO: coeffs for g_losses
@@ -312,11 +315,13 @@ for epoch in range(opt.start_epoch, opt.niter):
 
                 update_FG()
 
+        tt3 = time.time()
         # time spent per sample
-        t = (time.time() - iter_start_time) / opt.batchSize
+        #t = (time.time() - iter_start_time) / opt.batchSize
+        t = (time.time() - iter_start_time)
 
-        if i % 10 == 0:
-            print('[{epoch}/{nepoch}][{iter}/{niter}] in {t:.3f} seconds '
+        if i % 1 == 0:
+            print('[{epoch}/{nepoch}][{iter}/{niter}] in {t:.3f}s ({t01:.3f},{t12:.3f},{t23:.3f}) '
                   'D/G: {D:.3f}/{G:.3f} '
                   'P_CE/A_CE: {P_CE:.3f}/{A_CE:.3f} '
                   'P_L1/A_L1: {P_L1:.3f}/{A_L1:.3f} '
@@ -324,7 +329,7 @@ for epoch in range(opt.start_epoch, opt.niter):
                             nepoch=opt.niter,
                             iter=i,
                             niter=len(x_loader),
-                            t=t,
+                            t=t, t01=tt1-tt0, t12=tt2-tt1, t23=tt3-tt2,
                             **stats))
 
             # visualization

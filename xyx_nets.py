@@ -149,7 +149,8 @@ class GX2Y(nn.Module):
         self.logsoftmax = nn.LogSoftmax()
 
         if opt.archF == 'style_transform':
-            self.resnet = StyleTransformResNet(opt.input_nc, opt.output_nc, opt.ngf, norm_layer=nn.BatchNorm2d, use_dropout=opt.use_dropout, n_blocks=9,
+            self.resnet = StyleTransformResNet(opt.input_nc, opt.output_nc, opt.ngf,
+                            norm_layer=nn.BatchNorm2d, use_dropout=opt.use_dropout, n_blocks=9,
                             gpu_ids=opt.gpu_ids, last_layer='softmax')
             self.resnet.apply(weights_init)
         elif opt.archF == 'resnet50_fcn':

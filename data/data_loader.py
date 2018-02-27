@@ -45,6 +45,7 @@ class CustomDatasetDataLoader(object):
     def __init__(self, opt):
         self.dataset = CreateDataset(opt)
         batchSize = opt.batchSize if opt.isTrain else 1
+        self.batchSize = batchSize
 
         if opt.isTrain:
             if 'unif' in opt.unsup_sampler: # unif, unif_ignore
@@ -76,7 +77,7 @@ class CustomDatasetDataLoader(object):
         return self.dataloader.__iter__()
 
     def __len__(self):
-        return len(self.dataset)
+        return len(self.dataset) // self.batchSize
 
     def iter_all(self):
         return self.dataloader.__iter__()
@@ -116,12 +117,13 @@ class XYDataLoader(object):
             sampler = my_sampler,
             num_workers=int(opt.nThreads),
             drop_last=True)
+        self.batchSize = opt.batchSize
 
     def __iter__(self):
         return self.dataloader.__iter__()
 
     def __len__(self):
-        return len(self.dataset)
+        return len(self.dataset) // self.batchSize
 
 def CreateDataset(opt):
     dataset = None
