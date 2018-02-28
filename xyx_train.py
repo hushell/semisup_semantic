@@ -56,6 +56,7 @@ for k in net.keys():
     if len(opt.gpu_ids) > 0:
         net[k].cuda(opt.gpu_ids[0])
 
+    # F has its own init
     if k != 'F':
         net[k].apply(weights_init)
 
@@ -210,7 +211,7 @@ for epoch in range(opt.start_epoch, opt.niter):
             net['F'].temperature = MIN_TEMP
 
         if g_it < 25 or g_it % 500 == 0:
-            D_ITERS, G_ITERS = 100, 1
+            D_ITERS, G_ITERS = 50, 1
         else:
             D_ITERS, G_ITERS = 5, 1
 
@@ -350,6 +351,7 @@ for epoch in range(opt.start_epoch, opt.niter):
 
     # evaluation & save
     if epoch % opt.save_every == 0:
+        # TODO: only save ckpt for best val loss
         evaluation(epoch)
         visualizer.save_webpage(prefix='train') # visualizer maintains a img_dict to be saved in webpage
         for k in net.keys():

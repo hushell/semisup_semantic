@@ -77,7 +77,8 @@ class CustomDatasetDataLoader(object):
         return self.dataloader.__iter__()
 
     def __len__(self):
-        return len(self.dataset) // self.batchSize
+        #return len(self.dataset) // self.batchSize
+        return self.dataloader.__len__()
 
     def iter_all(self):
         return self.dataloader.__iter__()
@@ -123,7 +124,8 @@ class XYDataLoader(object):
         return self.dataloader.__iter__()
 
     def __len__(self):
-        return len(self.dataset) // self.batchSize
+        #return len(self.dataset) // self.batchSize
+        return self.dataloader.__len__()
 
 def CreateDataset(opt):
     dataset = None
@@ -171,6 +173,7 @@ class InfiniteDataLoader(object):
             # Reached end of the dataset
             self.data_iter = iter(self.dataloader)
             data = self.data_iter.next()
+            #print('*** infi_data_loader starts over.')
 
         return data
 
