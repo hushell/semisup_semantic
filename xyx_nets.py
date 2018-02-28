@@ -58,6 +58,7 @@ parser.add_argument('--ndf', type=int, default=64, help='# of discrim filters in
 parser.add_argument('--noise', default='sphere', help='normal|sphere')
 parser.add_argument('--n_layers_D', type=int, default=3, help='only used if which_model_netD==n_layers')
 parser.add_argument('--archF', type=str, default='drn_d_22', help='')
+parser.add_argument('--archG', type=str, default='style_transform', help='')
 
 ################################
 # external
@@ -133,9 +134,6 @@ def create_losses(opt):
 #########################################################################
 from models import networks
 from models.networks import weights_init
-from models.style_transform_resnet import StyleTransformResNet
-from models.resnet50_fcn import ResNet50FCN
-from models.drn import DRNSeg
 
 
 # net X -> Y: F(x)
@@ -149,14 +147,19 @@ class GX2Y(nn.Module):
         self.logsoftmax = nn.LogSoftmax()
 
         if opt.archF == 'style_transform':
+            from models.style_transform_resnet import StyleTransformResNet
             self.resnet = StyleTransformResNet(opt.input_nc, opt.output_nc, opt.ngf,
                             norm_layer=nn.BatchNorm2d, use_dropout=opt.use_dropout, n_blocks=9,
                             gpu_ids=opt.gpu_ids, last_layer='softmax')
             self.resnet.apply(weights_init)
         elif opt.archF == 'resnet50_fcn':
+            from models.resnet50_fcn import ResNet50FCN
             self.resnet = ResNet50FCN(opt.output_nc, freeze_batch_norm=False, gpu_ids=opt.gpu_ids)
         elif 'drn' in opt.archF:
+            from models.drn import DRNSeg
             self.resnet = DRNSeg(opt.output_nc, opt.archF, gpu_ids=opt.gpu_ids, pretrained=True, use_torch_up=False)
+        else:
+            raise ValueError('%s not recognized!' % opt.archF)
 
         def _forward(x):
             log_probs = self.resnet(x) # logsoftmax
@@ -181,9 +184,21 @@ class GY2X(nn.Module):
         super(GY2X, self).__init__()
         self.gpu_ids = opt.gpu_ids
 
-        self.model = StyleTransformResNet(opt.output_nc, opt.input_nc, opt.ngf,
-                            norm_layer=nn.BatchNorm2d, use_dropout=opt.use_dropout, n_blocks=9,
-                            gpu_ids=opt.gpu_ids, last_layer='tanh')
+        if opt.archG == 'style_transform':
+            from models.style_transform_resnet import StyleTransformResNet
+            self.model = StyleTransformResNet(opt.output_nc, opt.input_nc, opt.ngf,
+                                              norm_layer=nn.BatchNorm2d, use_dropout=opt.use_dropout, n_blocks=9,
+                                              gpu_ids=opt.gpu_ids, last_layer='tanh')
+        elif opt.archG == 'unet_128':
+            from models.u_net import UnetGenerator
+            self.model = UnetGenerator(opt.output_nc, opt.input_nc, 7, opt.ngf, norm_layer=nn.BatchNorm2d,
+                                       use_dropout=opt.use_dropout, gpu_ids=opt.gpu_ids)
+        elif opt.archG == 'unet_256':
+            from models.u_net import UnetGenerator
+            self.model = UnetGenerator(opt.output_nc, opt.input_nc, 8, opt.ngf, norm_layer=nn.BatchNorm2d,
+                                       use_dropout=opt.use_dropout, gpu_ids=opt.gpu_ids)
+        else:
+            raise ValueError('%s not recognized!' % opt.archG)
 
     def forward(self, input):
         x_hat = self.model(input)
