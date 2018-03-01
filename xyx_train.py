@@ -13,10 +13,10 @@ opt = get_opt()
 print(opt)
 
 # gpu id
-os.environ['CUDA_VISIBLE_DEVICES'] = opt.gpu_ids # absolute ids
-if len(opt.gpu_ids) > 0:
-    torch.randn(8).cuda()
-    os.environ['CUDA_VISIBLE_DEVICES'] = ''
+#os.environ['CUDA_VISIBLE_DEVICES'] = opt.gpu_ids # absolute ids
+#if len(opt.gpu_ids) > 0:
+#    torch.randn(8).cuda()
+#    os.environ['CUDA_VISIBLE_DEVICES'] = ''
 opt.gpu_ids = range(0,len(opt.gpu_ids)) # new range starting from 0
 
 #########################################################################
