@@ -182,6 +182,9 @@ def evaluation(epoch):
 #-----------------------------------------------------------------------
 from util.util import tensor2lab
 def display_imgs(images, epoch, i, subset='train', do_save=0):
+    if opt.display_id <= 0 and opt.no_html:
+        return
+
     for k, im in images.items():
         if 'y' in k:
             images[k] = tensor2lab(im, val_loader.dataset.label2color) # 3HW
