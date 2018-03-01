@@ -44,7 +44,7 @@ parser.add_argument('--manual_seed', type=int, default=123, help='manual seed')
 parser.add_argument('--start_epoch', type=int, default=0, help='epoch number to start with')
 parser.add_argument('--nThreads', default=4, type=int, help='# threads for loading data')
 parser.add_argument('--gpu_ids', type=str, default='', help='gpu ids: e.g. 0; 0,2')
-parser.add_argument('--stage', type=str, default='F', help='F, GD, F2, FGD')
+parser.add_argument('--stage', type=str, default='F', help='e.g. F:2,G:1,D:0')
 parser.add_argument('--lambda_x', type=float, default=1.0, help='coeff of L1 and GAN')
 parser.add_argument('--lambda_y', type=float, default=1.0, help='coeff of CE')
 parser.add_argument('--lrFGD', type=str, default='1e-4,1e-4,1e-4', help='lrF,lrG,lrD')
@@ -63,6 +63,8 @@ parser.add_argument('--ngf', type=int, default=64, help='# of gen filters in fir
 parser.add_argument('--ndf', type=int, default=64, help='# of discrim filters in first conv layer')
 parser.add_argument('--noise', default='sphere', help='normal|sphere')
 parser.add_argument('--n_layers_D', type=int, default=3, help='only used if which_model_netD==n_layers')
+parser.add_argument('--archF', type=str, default='drn_d_22', help='')
+parser.add_argument('--archG', type=str, default='style_transform', help='')
 
 ################################
 # external
@@ -113,7 +115,6 @@ def batch_train(lrs, lambda_xs, stage_str):
                 #p = call_func(cmd, stdin=open('/dev/null'), stdout=subprocess.PIPE, stderr=output_f, shell=True)
                 p.wait()
 
-            # TODO: 3. check net load for --update_D
             lr_lb_name = opt.name + '_%s_b%d/stage%s/lrFGD%s_lbX%.3f' % (opt.dataset, opt.batchSize, stage_str, lrFGD, lb)
             logfile = os.path.join(opt.checkpoints_dir, lr_lb_name, 'loss_log.txt')
             assert(os.path.exists(logfile))
@@ -148,7 +149,7 @@ print('\n==> Stage F: mIoU = %f by lr_F = %.1e\n' % (F_max_ious.max(), lr_F))
 
 # 'Mean IoU': 0.72510022394608131
 
-sys.exit(0) # DEBUG
+#sys.exit(0) # DEBUG
 
 #----------------------------------------------------------------
 # stage F:1,G:2,D:2: freeze F, update G & D --> lr_GD

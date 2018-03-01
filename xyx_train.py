@@ -113,6 +113,7 @@ MIN_TEMP = 0.5
 LAMBDA_CE = 10.0
 num_pixs = opt.batchSize * opt.heightSize * opt.widthSize
 
+#-----------------------------------------------------------------------
 def populate_xy_hat(temperature):
     # X
     populate_xy(t_x, None, x_loader, opt)
@@ -128,6 +129,7 @@ def populate_xy_hat(temperature):
 
     return (v_x, v_y_int, log_y, y_hat)
 
+#-----------------------------------------------------------------------
 from util.meter import SegmentationMeter
 def evaluation(epoch):
     heightSize = val_loader.dataset.heightSize
@@ -175,6 +177,9 @@ def evaluation(epoch):
     if opt.updates['F'] == 2:
         net['F'].train()
 
+    return eval_results[0]['Mean IoU']
+
+#-----------------------------------------------------------------------
 from util.util import tensor2lab
 def display_imgs(images, epoch, i, subset='train', do_save=0):
     for k, im in images.items():
@@ -190,7 +195,7 @@ def display_imgs(images, epoch, i, subset='train', do_save=0):
     visualizer.display_current_results(images, epoch, i, subset=subset, do_save=do_save)
 
 #########################################################################
-evaluation(0)
+mIoU = evaluation(0)
 
 # main loop
 stats = {'D':0, 'G':0, 'P_CE':0, 'A_CE':0, 'P_L1':0, 'A_L1':0}
@@ -218,10 +223,11 @@ for epoch in range(opt.start_epoch, opt.niter):
         if opt.updates['D'] != 2:
             D_ITERS = 0
 
-        tt0 = time.time()
-        # ---------------------------
+        # -------------------------------------------------------------------
         #        Optimize over D
-        # ---------------------------
+        # -------------------------------------------------------------------
+        tt0 = time.time()
+
         for d_i in range(D_ITERS):
             v_x, v_y_int, log_y, y_hat = populate_xy_hat(net['F'].temperature)
             x_tilde = net['G'](y_hat) # x -> y_hat -> x_tilde
@@ -243,9 +249,10 @@ for epoch in range(opt.start_epoch, opt.niter):
             #stats['E_p_D'] = E_p_D.data[0]
             stats['D'] = -d_loss.data[0]
 
-        # ---------------------------
+        # -------------------------------------------------------------------
         #        Optimize over F,H,G
-        # ---------------------------
+        # -------------------------------------------------------------------
+
         for g_i in range(G_ITERS):
             g_losses = []
 
@@ -261,9 +268,10 @@ for epoch in range(opt.start_epoch, opt.niter):
                 del g_losses[:]
                 g_it += 1
 
-            tt1 = time.time()
-            # ---------------------------
+            # -------------------------------------------------------------------
             # paired X, Y
+
+            tt1 = time.time()
             populate_xy(t_x, t_y_int, paired_loader, opt)
             v_x = Variable(t_x)
 
@@ -286,10 +294,11 @@ for epoch in range(opt.start_epoch, opt.niter):
 
             update_FG()
 
-            tt2 = time.time()
-            # ---------------------------
+            # -------------------------------------------------------------------
             # X, Y augmented
             # TODO: coeffs for g_losses
+
+            tt2 = time.time()
             if opt.updates['G'] > 0 and opt.updates['F'] > 0: # log p(x)
                 v_x, v_y_int, log_y, y_hat = populate_xy_hat(net['F'].temperature)
 
@@ -318,9 +327,11 @@ for epoch in range(opt.start_epoch, opt.niter):
 
         tt3 = time.time()
         # time spent per sample
-        #t = (time.time() - iter_start_time) / opt.batchSize
-        t = (time.time() - iter_start_time)
+        #titer = (time.time() - iter_start_time) / opt.batchSize
+        titer = (tt3 - iter_start_time)
 
+        # -------------------------------------------------------------------
+        # print & plot
         if i % 1 == 0:
             print('[{epoch}/{nepoch}][{iter}/{niter}] in {t:.3f}s ({t01:.3f},{t12:.3f},{t23:.3f}) '
                   'D/G: {D:.3f}/{G:.3f} '
@@ -330,7 +341,7 @@ for epoch in range(opt.start_epoch, opt.niter):
                             nepoch=opt.niter,
                             iter=i,
                             niter=len(x_loader),
-                            t=t, t01=tt1-tt0, t12=tt2-tt1, t23=tt3-tt2,
+                            t=titer, t01=tt1-tt0, t12=tt2-tt1, t23=tt3-tt2,
                             **stats))
 
             # visualization
@@ -345,16 +356,19 @@ for epoch in range(opt.start_epoch, opt.niter):
                           'y':v_y_int.data.cpu().numpy(), 'y_hat':y_hat.data.cpu().numpy().argmax(1)}
             display_imgs(images, epoch, i)
 
+
+    # -------------------------------------------------------------------
     # on end epoch
     print('===> End of epoch %d / %d \t Time Taken: %.2f sec\n' % \
                 (epoch, opt.niter, time.time() - epoch_start_time))
 
-    # evaluation & save
+    # evaluation & save (best only)
     if epoch % opt.save_every == 0:
-        # TODO: only save ckpt for best val loss
-        evaluation(epoch)
-        visualizer.save_webpage(prefix='train') # visualizer maintains a img_dict to be saved in webpage
-        for k in net.keys():
-            if opt.updates[k] == 2:
-                weights_fpath = os.path.join(opt.checkpoints_dir, opt.name, 'net%s.pth' % (k))
-                torch.save(net[k].state_dict(), weights_fpath)
+        temp_mIoU = evaluation(epoch)
+        if temp_mIoU >= mIoU:
+            mIoU = temp_mIoU
+            visualizer.save_webpage(prefix='train') # visualizer maintains a img_dict to be saved in webpage
+            for k in net.keys():
+                if opt.updates[k] == 2:
+                    weights_fpath = os.path.join(opt.checkpoints_dir, opt.name, 'net%s.pth' % (k))
+                    torch.save(net[k].state_dict(), weights_fpath)

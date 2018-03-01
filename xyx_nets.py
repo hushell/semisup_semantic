@@ -21,7 +21,7 @@ parser.add_argument('--niter_decay', type=int, default=100, help='# of iter to l
 ################################
 parser.add_argument('--dataset', type=str, default='cityscapesAB', help='chooses which dataset is loaded. [cityscapesAB | pascal | camvid]')
 parser.add_argument('--which_direction', type=str, default='AtoB', help='AtoB or BtoA')
-parser.add_argument('--resize_or_crop', type=str, default='resize_and_crop', help='scaling and cropping of images at load time [resize_and_crop|crop|scale_width|no_resize]')
+parser.add_argument('--resize_or_crop', type=str, default='crop', help='scaling and cropping of images at load time [resize_and_crop|crop|scale_width|no_resize]')
 parser.add_argument('--no_flip', action='store_true', help='if specified, do not flip the images for data argumentation')
 parser.add_argument('--ignore_index', type=int, default=-100, help='mask this class without contributing to nll_loss')
 parser.add_argument('--unsup_portion', type=int, default=9, help='portion of unsupervised, range=0,...,10')
@@ -33,7 +33,7 @@ parser.add_argument('--unsup_sampler', type=str, default='sep', help='unif, sep,
 ################################
 parser.add_argument('--name', type=str, default='xyx', help='name of the experiment. It decides where to store samples and models')
 parser.add_argument('--checkpoints_dir', default='ckpt', help='folder to output images and model checkpoints')
-parser.add_argument('--save_every', default=10, type=int, help='')
+parser.add_argument('--save_every', default=2, type=int, help='')
 parser.add_argument('--manual_seed', type=int, default=123, help='manual seed')
 parser.add_argument('--start_epoch', type=int, default=0, help='epoch number to start with')
 parser.add_argument('--nThreads', default=4, type=int, help='# threads for loading data')
