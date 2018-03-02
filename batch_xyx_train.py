@@ -16,7 +16,7 @@ parser = argparse.ArgumentParser()
 ################################
 # optimizer
 ################################
-parser.add_argument('--niter', type=int, default=100, help='# of iter at starting learning rate')
+parser.add_argument('--niter', type=int, default=200, help='# of iter at starting learning rate')
 parser.add_argument('--lr', type=float, default=0.0002, help='initial learning rate for adam')
 parser.add_argument('--drop_lr', default=5, type=int, help='')
 parser.add_argument('--beta1', type=float, default=0.5, help='momentum term of ADAM')
@@ -100,14 +100,14 @@ def batch_train(lrs, lambda_xs, stage_str):
 
         for j,lb in enumerate(lambda_xs):
             # TODO: try dropout
-            cmd = "%s xyx_train.py --name %s --checkpoints_dir ./checkpoints --output_nc %d --dataset %s --batchSize %d " \
+            cmd = "CUDA_VISIBLE_DEVICES=%s %s xyx_train.py --name %s --checkpoints_dir ./checkpoints --output_nc %d --dataset %s --batchSize %d " \
                   "--heightSize %d --widthSize %d --start_epoch %d --niter %d --drop_lr %d --resize_or_crop %s " \
                   "--ignore_index %d --unsup_portion %d --portion_total %d --unsup_sampler %s " \
-                  "--port %d --gpu_ids %s --lrFGD %s --lambda_x %.3f --stage %s" \
-                % (pybin, opt.name, opt.output_nc, opt.dataset, opt.batchSize, \
+                  "--port %d --gpu_ids %d --lrFGD %s --lambda_x %.3f --stage %s --display_id 0 --no_html" \
+                % (opt.gpu_ids, pybin, opt.name, opt.output_nc, opt.dataset, opt.batchSize, \
                    opt.heightSize, opt.widthSize, opt.start_epoch, opt.niter, opt.drop_lr, opt.resize_or_crop, \
                    opt.ignore_index, opt.unsup_portion, opt.portion_total, opt.unsup_sampler, \
-                   opt.port, opt.gpu_ids, lrFGD, lb, stage_str) # NOTE: only lrFGD, lb, stage change
+                   opt.port, 0, lrFGD, lb, stage_str) # NOTE: only lrFGD, lb, stage change
             print(cmd + '\n')
 
             outfile = "./logs/%s_%s_b%d/stage%s_lrFGD%s_lb%.3f.log" % (opt.name, opt.dataset, opt.batchSize, stage_str, lrFGD, lb)
@@ -129,7 +129,8 @@ def batch_train(lrs, lambda_xs, stage_str):
 
 #----------------------------------------------------------------
 # stage F:2,G:0,D:0 --> lr_F
-lrs = [1e-2, 1e-3, 1e-4]
+#lrs = [1e-2, 1e-3, 1e-4]
+lrs = [1e-2, 1e-4] # DEBUG
 stage_str = 'F:2,G:0,D:0'
 
 F_max_ious = batch_train(lrs, [1.0], stage_str)
@@ -178,8 +179,13 @@ D_stageGD_path = os.path.join(opt.checkpoints_dir, stageGD_name, 'netD.pth')
 print('\n==> Stage GD: mIoU = %f by lr_GD = %.1e\n' % (GD_max_ious.max(), lr_GD))
 
 #----------------------------------------------------------------
+# fine tune stages:
+opt.niter = 65
+
+#----------------------------------------------------------------
 # stage F:2,G:1,D:1: freeze G & D, update F with lr_F --> lambda_x
-lambda_xs = [100, 10, 1, 1e-1, 1e-2]
+#lambda_xs = [100, 10, 1, 1e-1, 1e-2]
+lambda_xs = [100, 1, 1e-2] # DEBUG
 lrFGD = '%.1e,%.1e,%.1e' % (lr_F, lr_GD, lr_GD)
 stage_str = 'F:2,G:1,D:1'
 
