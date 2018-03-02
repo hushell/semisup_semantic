@@ -25,19 +25,13 @@ class CamvidDataset(data.Dataset):
 
         # samples
         self.files = np.array( os.listdir(root + '/' + self.split) )
-        self.unsup = np.zeros(len(self.files), dtype=np.bool)
+        self.unsup = np.zeros(self.__len__(), dtype=np.int32)
 
         if opt.isTrain and opt.unsup_portion > 0:
-            if hasattr(opt, 'unsup'): # keep only supervised samples, DEPRECATED
-                self.files = self.files[np.logical_not(opt.unsup)]
-                self.unsup = np.zeros(len(self.files), dtype=np.bool)
-            else:
-                # chunking, chunk.size = portion_total; first 0~unsup_portion elements in chunk set flag = True
-                # e.g., unsup_portion=0: no unsup; unsup_portion=portion_total=10: all unsup
-                assert(opt.unsup_portion <= opt.portion_total)
-                tmp = np.concatenate([np.arange(i,len(self.files),opt.portion_total) for i in range(opt.unsup_portion)])
-                self.unsup[tmp] = True
-                print('==> unsupervised portion = %.3f' % (float(sum(self.unsup)) / len(self.files)))
+            assert(opt.unsup_portion <= opt.portion_total) # e.g., unsup_portion=0: no unsup; unsup_portion=portion_total=10: all unsup
+            tmp = np.concatenate([np.arange(i,self.__len__(),opt.portion_total) for i in range(opt.unsup_portion)])
+            self.unsup[tmp] = 1
+            print('==> unsupervised portion = %.3f' % (float(sum(self.unsup)) / self.__len__()))
 
         # transforms
         transform_list = []
