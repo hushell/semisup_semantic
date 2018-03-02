@@ -60,7 +60,7 @@ parser.add_argument('--n_layers_D', type=int, default=3, help='')
 parser.add_argument('--n_layers_F', type=int, default=9, help='')
 parser.add_argument('--n_layers_G', type=int, default=9, help='')
 parser.add_argument('--archD', type=str, default='patch', help='')
-parser.add_argument('--archF', type=str, default='drn_d_22', help='')
+parser.add_argument('--archF', type=str, default='style_transform', help='')
 parser.add_argument('--archG', type=str, default='style_transform', help='')
 
 ################################
