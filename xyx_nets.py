@@ -56,9 +56,12 @@ parser.add_argument('--use_dropout', action='store_true', help='use dropout for 
 parser.add_argument('--ngf', type=int, default=64, help='# of gen filters in first conv layer')
 parser.add_argument('--ndf', type=int, default=64, help='# of discrim filters in first conv layer')
 parser.add_argument('--noise', default='sphere', help='normal|sphere')
-parser.add_argument('--n_layers_D', type=int, default=3, help='only used if which_model_netD==n_layers')
+parser.add_argument('--n_layers_D', type=int, default=3, help='')
+parser.add_argument('--n_layers_F', type=int, default=9, help='')
+parser.add_argument('--n_layers_G', type=int, default=9, help='')
+parser.add_argument('--archD', type=str, default='patch', help='')
 parser.add_argument('--archF', type=str, default='drn_d_22', help='')
-parser.add_argument('--archG', type=str, default='style_transform', help='')
+parser.add_argument('--archG', type=str, default='unet_128', help='')
 
 ################################
 # external
@@ -137,9 +140,9 @@ from models.networks import weights_init
 
 
 # net X -> Y: F(x)
-class GX2Y(nn.Module):
+class FX2Y(nn.Module):
     def __init__(self, opt, temperature):
-        super(GX2Y, self).__init__()
+        super(FX2Y, self).__init__()
         self.gpu_ids = opt.gpu_ids
         self.temperature = temperature
 
@@ -149,7 +152,7 @@ class GX2Y(nn.Module):
         if opt.archF == 'style_transform':
             from models.style_transform_resnet import StyleTransformResNet
             self.resnet = StyleTransformResNet(opt.input_nc, opt.output_nc, opt.ngf,
-                            norm_layer=nn.BatchNorm2d, use_dropout=opt.use_dropout, n_blocks=9,
+                            norm_layer=nn.BatchNorm2d, use_dropout=opt.use_dropout, n_blocks=opt.n_layers_F,
                             gpu_ids=opt.gpu_ids, last_layer='softmax')
             self.resnet.apply(weights_init)
         elif opt.archF == 'resnet50_fcn':
@@ -187,7 +190,7 @@ class GY2X(nn.Module):
         if opt.archG == 'style_transform':
             from models.style_transform_resnet import StyleTransformResNet
             self.model = StyleTransformResNet(opt.output_nc, opt.input_nc, opt.ngf,
-                                              norm_layer=nn.BatchNorm2d, use_dropout=opt.use_dropout, n_blocks=9,
+                                              norm_layer=nn.BatchNorm2d, use_dropout=opt.use_dropout, n_blocks=opt.n_layers_G,
                                               gpu_ids=opt.gpu_ids, last_layer='tanh')
         elif opt.archG == 'unet_128':
             from models.u_net import UnetGenerator

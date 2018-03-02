@@ -33,10 +33,10 @@ class Visualizer():
         with open(self.log_name, "a") as log_file:
             now = time.strftime("%c")
             log_file.write('================ New run at (%s) ================\n' % now)
-            log_file.write('%s' % ' '.join(sys.argv))
+            log_file.write('%s\n' % ' '.join(sys.argv))
             log_file.write('=================================================\n')
         print('==> OPTIONS:')
-        print('%s' % ' '.join(sys.argv))
+        print('%s\n' % ' '.join(sys.argv))
 
     def display_current_results(self, visuals, epoch, it, subset='train', do_save=0, idx=1):
         """ |visuals|: dictionary of images to display or save, do_save>1 save to webpage """

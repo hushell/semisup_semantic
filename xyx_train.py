@@ -48,7 +48,7 @@ visualizer = Visualizer(opt)
 TAU0 = 1.0
 
 net =dict()
-net['F'] = GX2Y(opt, temperature=TAU0)
+net['F'] = FX2Y(opt, temperature=TAU0)
 net['G'] = GY2X(opt)
 net['D'] = NLayerDiscriminator(opt)
 
@@ -110,8 +110,6 @@ CLAMP_LOW = -0.01
 CLAMP_UPP = 0.01
 ANNEAL_RATE = 0.00003
 MIN_TEMP = 0.5
-LAMBDA_CE = 10.0
-num_pixs = opt.batchSize * opt.heightSize * opt.widthSize
 
 #-----------------------------------------------------------------------
 def populate_xy_hat(temperature):
@@ -244,6 +242,7 @@ for epoch in range(opt.start_epoch, opt.niter):
             d_loss.backward()
             optimizer['D'].step()
 
+            # TODO: gradient penalty
             # clamp parameters to a cube
             for p in net['D'].parameters():
                 p.data.clamp_(CLAMP_LOW, CLAMP_UPP)
@@ -335,18 +334,18 @@ for epoch in range(opt.start_epoch, opt.niter):
 
         # -------------------------------------------------------------------
         # print & plot
-        if i % 1 == 0:
-            print('[{epoch}/{nepoch}][{iter}/{niter}] in {t:.3f}s ({t01:.3f},{t12:.3f},{t23:.3f}) '
-                  'D/G: {D:.3f}/{G:.3f} '
-                  'P_CE/A_CE: {P_CE:.3f}/{A_CE:.3f} '
-                  'P_L1/A_L1: {P_L1:.3f}/{A_L1:.3f} '
-                  ''.format(epoch=epoch,
-                            nepoch=opt.niter,
-                            iter=i,
-                            niter=len(x_loader),
-                            t=titer, t01=tt1-tt0, t12=tt2-tt1, t23=tt3-tt2,
-                            **stats))
+        print('[{epoch}/{nepoch}][{iter}/{niter}] in {t:.3f}s ({t01:.3f},{t12:.3f},{t23:.3f}) '
+              'D/G: {D:.3f}/{G:.3f} '
+              'P_CE/A_CE: {P_CE:.3f}/{A_CE:.3f} '
+              'P_L1/A_L1: {P_L1:.3f}/{A_L1:.3f} '
+              ''.format(epoch=epoch,
+                        nepoch=opt.niter,
+                        iter=i,
+                        niter=len(x_loader),
+                        t=titer, t01=tt1-tt0, t12=tt2-tt1, t23=tt3-tt2,
+                        **stats))
 
+        if i % 50 == 0:
             # visualization
             if opt.updates['G'] == 2:
                 images = {'x':v_x.data.cpu(), 'x_hat':x_hat.data.cpu(), 'x_tilde':x_tilde.data.cpu(),
@@ -367,10 +366,10 @@ for epoch in range(opt.start_epoch, opt.niter):
 
     # evaluation & save (best only)
     if epoch % opt.save_every == 0:
+        visualizer.save_webpage(prefix='train') # visualizer maintains a img_dict to be saved in webpage
         temp_mIoU = evaluation(epoch)
         if temp_mIoU >= mIoU:
             mIoU = temp_mIoU
-            visualizer.save_webpage(prefix='train') # visualizer maintains a img_dict to be saved in webpage
             for k in net.keys():
                 if opt.updates[k] == 2:
                     weights_fpath = os.path.join(opt.checkpoints_dir, opt.name, 'net%s.pth' % (k))
