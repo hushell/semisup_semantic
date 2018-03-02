@@ -61,7 +61,7 @@ parser.add_argument('--n_layers_F', type=int, default=9, help='')
 parser.add_argument('--n_layers_G', type=int, default=9, help='')
 parser.add_argument('--archD', type=str, default='patch', help='')
 parser.add_argument('--archF', type=str, default='drn_d_22', help='')
-parser.add_argument('--archG', type=str, default='unet_128', help='')
+parser.add_argument('--archG', type=str, default='style_transform', help='')
 
 ################################
 # external
@@ -192,7 +192,7 @@ class GY2X(nn.Module):
             self.model = StyleTransformResNet(opt.output_nc, opt.input_nc, opt.ngf,
                                               norm_layer=nn.BatchNorm2d, use_dropout=opt.use_dropout, n_blocks=opt.n_layers_G,
                                               gpu_ids=opt.gpu_ids, last_layer='tanh')
-        elif opt.archG == 'unet_128':
+        elif opt.archG == 'unet_128': # NOTE: unet works only for 128x128 or 256x256
             from models.u_net import UnetGenerator
             self.model = UnetGenerator(opt.output_nc, opt.input_nc, 7, opt.ngf, norm_layer=nn.BatchNorm2d,
                                        use_dropout=opt.use_dropout, gpu_ids=opt.gpu_ids)

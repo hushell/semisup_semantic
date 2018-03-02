@@ -62,7 +62,10 @@ parser.add_argument('--use_dropout', action='store_true', help='use dropout for 
 parser.add_argument('--ngf', type=int, default=64, help='# of gen filters in first conv layer')
 parser.add_argument('--ndf', type=int, default=64, help='# of discrim filters in first conv layer')
 parser.add_argument('--noise', default='sphere', help='normal|sphere')
-parser.add_argument('--n_layers_D', type=int, default=3, help='only used if which_model_netD==n_layers')
+parser.add_argument('--n_layers_D', type=int, default=3, help='')
+parser.add_argument('--n_layers_F', type=int, default=9, help='')
+parser.add_argument('--n_layers_G', type=int, default=9, help='')
+parser.add_argument('--archD', type=str, default='patch', help='')
 parser.add_argument('--archF', type=str, default='drn_d_22', help='')
 parser.add_argument('--archG', type=str, default='style_transform', help='')
 
@@ -104,7 +107,7 @@ def batch_train(lrs, lambda_xs, stage_str):
                 % (pybin, opt.name, opt.output_nc, opt.dataset, opt.batchSize, \
                    opt.heightSize, opt.widthSize, opt.start_epoch, opt.niter, opt.drop_lr, opt.resize_or_crop, \
                    opt.ignore_index, opt.unsup_portion, opt.portion_total, opt.unsup_sampler, \
-                   opt.port, opt.gpu_ids, lrFGD, lb, stage_str)
+                   opt.port, opt.gpu_ids, lrFGD, lb, stage_str) # NOTE: only lrFGD, lb, stage change
             print(cmd + '\n')
 
             outfile = "./logs/%s_%s_b%d/stage%s_lrFGD%s_lb%.3f.log" % (opt.name, opt.dataset, opt.batchSize, stage_str, lrFGD, lb)
@@ -131,10 +134,8 @@ stage_str = 'F:2,G:0,D:0'
 
 F_max_ious = batch_train(lrs, [1.0], stage_str)
 
-#arg_lr_F = np.unravel_index(F_max_ious.argmax(), F_max_ious.shape)
 arg_lr_F = F_max_ious.argmax(axis=0)
 lr_F = lrs[arg_lr_F[0]] # **opt lr_F
-#lr_F = 1e-3 # DEBUG
 
 lrFGD = '%.1e,%.1e,%.1e' % (lr_F, lr_F, lr_F)
 stageF_name = opt.name + '_%s_b%d/stage%s/lrFGD%s_lbX%.3f' % (opt.dataset, opt.batchSize, stage_str, lrFGD, 1.0)
@@ -168,7 +169,6 @@ for lr in lrs:
 GD_max_ious = batch_train(lrs, [1.0], stage_str)
 arg_lr_GD = GD_max_ious.argmax(axis=0)
 lr_GD = lrs[arg_lr_GD[0]] # **opt lr_GD
-#lr_GD = 1e-4 # DEBUG
 
 lrFGD = '%.1e,%.1e,%.1e' % (lr_GD, lr_GD, lr_GD)
 stageGD_name = opt.name + '_%s_b%d/stage%s/lrFGD%s_lbX%.3f' % (opt.dataset, opt.batchSize, stage_str, lrFGD, 1.0)
@@ -198,7 +198,6 @@ for lb in lambda_xs:
 F2_max_ious = batch_train([lrFGD], lambda_xs, stage_str)
 arg_lb_x = F2_max_ious.argmax(axis=1)
 lb_x = lambda_xs[arg_lb_x[0]] # **opt lb_x
-# lb_x = 10 # DEBUG
 
 stageF2_name = opt.name + '_%s_b%d/stage%s/lrFGD%s_lbX%.3f' % (opt.dataset, opt.batchSize, stage_str, lrFGD, lb_x)
 F_stageF2_path = os.path.join(opt.checkpoints_dir, stageF2_name, 'netF.pth')
