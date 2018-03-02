@@ -1,5 +1,6 @@
 import numpy as np
 import os
+import sys
 import ntpath
 import time
 from . import util
@@ -27,10 +28,15 @@ class Visualizer():
 
             self.img_dict = {}
 
+        util.mkdirs(os.path.join(opt.checkpoints_dir, opt.name))
         self.log_name = os.path.join(opt.checkpoints_dir, opt.name, 'loss_log.txt')
         with open(self.log_name, "a") as log_file:
             now = time.strftime("%c")
             log_file.write('================ New run at (%s) ================\n' % now)
+            log_file.write('%s' % ' '.join(sys.argv))
+            log_file.write('=================================================\n')
+        print('==> OPTIONS:')
+        print('%s' % ' '.join(sys.argv))
 
     def display_current_results(self, visuals, epoch, it, subset='train', do_save=0, idx=1):
         """ |visuals|: dictionary of images to display or save, do_save>1 save to webpage """
