@@ -74,7 +74,7 @@ parser.add_argument('--no_html', action='store_true', help='do not save intermed
 # opt
 opt = parser.parse_args()
 opt.isTrain = True
-opt.name += '_%s_b%d/stage%s/lrFGD%s_lbX%.3f' % (opt.dataset, opt.batchSize, opt.stage, opt.lrFGD, opt.lambda_x)
+opt.name += '_%s_b%d/stage%s/lrFGD%s_lbX%.1e' % (opt.dataset, opt.batchSize, opt.stage, opt.lrFGD, opt.lambda_x)
 
 opt.updates = {k_v.split(':')[0]:int(k_v.split(':')[1]) for k_v in opt.stage.split(',')}
 opt.lrFGD = {k:float(lr) for k,lr in zip(opt.updates.keys(), opt.lrFGD.split(','))}

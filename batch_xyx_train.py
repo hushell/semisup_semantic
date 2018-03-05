@@ -103,14 +103,14 @@ def batch_train(lrs, lambda_xs, stage_str):
             cmd = "CUDA_VISIBLE_DEVICES=%s %s xyx_train.py --name %s --checkpoints_dir ./checkpoints --output_nc %d --dataset %s --batchSize %d " \
                   "--heightSize %d --widthSize %d --start_epoch %d --niter %d --drop_lr %d --resize_or_crop %s " \
                   "--ignore_index %d --unsup_portion %d --portion_total %d --unsup_sampler %s " \
-                  "--port %d --gpu_ids %d --lrFGD %s --lambda_x %.3f --stage %s" \
+                  "--port %d --gpu_ids %d --lrFGD %s --lambda_x %.1e --stage %s" \
                 % (opt.gpu_ids, pybin, opt.name, opt.output_nc, opt.dataset, opt.batchSize, \
                    opt.heightSize, opt.widthSize, opt.start_epoch, opt.niter, opt.drop_lr, opt.resize_or_crop, \
                    opt.ignore_index, opt.unsup_portion, opt.portion_total, opt.unsup_sampler, \
                    opt.port, 0, lrFGD, lb, stage_str) # NOTE: only lrFGD, lb, stage change
             print(cmd + '\n')
 
-            outfile = "./logs/%s_%s_b%d/stage%s_lrFGD%s_lb%.3f.log" % (opt.name, opt.dataset, opt.batchSize, stage_str, lrFGD, lb)
+            outfile = "./logs/%s_%s_b%d/stage%s_lrFGD%s_lb%.1e.log" % (opt.name, opt.dataset, opt.batchSize, stage_str, lrFGD, lb)
             util.mkdir( os.path.dirname(outfile) ) # mkdir if not exist
 
             with open(outfile, 'w') as output_f:
@@ -118,7 +118,7 @@ def batch_train(lrs, lambda_xs, stage_str):
                 #p = call_func(cmd, stdin=open('/dev/null'), stdout=subprocess.PIPE, stderr=output_f, shell=True)
                 p.wait()
 
-            lr_lb_name = opt.name + '_%s_b%d/stage%s/lrFGD%s_lbX%.3f' % (opt.dataset, opt.batchSize, stage_str, lrFGD, lb)
+            lr_lb_name = opt.name + '_%s_b%d/stage%s/lrFGD%s_lbX%.1e' % (opt.dataset, opt.batchSize, stage_str, lrFGD, lb)
             logfile = os.path.join(opt.checkpoints_dir, lr_lb_name, 'loss_log.txt')
             assert(os.path.exists(logfile))
             with open(logfile, 'r') as log_f:
@@ -139,7 +139,7 @@ arg_lr_F = F_max_ious.argmax(axis=0)
 lr_F = lrs[arg_lr_F[0]] # **opt lr_F
 
 lrFGD = '%.1e,%.1e,%.1e' % (lr_F, lr_F, lr_F)
-stageF_name = opt.name + '_%s_b%d/stage%s/lrFGD%s_lbX%.3f' % (opt.dataset, opt.batchSize, stage_str, lrFGD, 1.0)
+stageF_name = opt.name + '_%s_b%d/stage%s/lrFGD%s_lbX%.1e' % (opt.dataset, opt.batchSize, stage_str, lrFGD, 1.0)
 F_stageF_path = os.path.join(opt.checkpoints_dir, stageF_name, 'netF.pth')
 
 print('\n==> Stage F: mIoU = %f by lr_F = %.1e\n' % (F_max_ious.max(), lr_F))
@@ -162,7 +162,7 @@ stage_str = 'F:1,G:2,D:2'
 
 for lr in lrs:
     lrFGD = '%.1e,%.1e,%.1e' % (lr, lr, lr)
-    stageGD_name = opt.name + '_%s_b%d/stage%s/lrFGD%s_lbX%.3f' % (opt.dataset, opt.batchSize, stage_str, lrFGD, 1.0)
+    stageGD_name = opt.name + '_%s_b%d/stage%s/lrFGD%s_lbX%.1e' % (opt.dataset, opt.batchSize, stage_str, lrFGD, 1.0)
     F_stageGD_path = os.path.join(opt.checkpoints_dir, stageGD_name, 'netF.pth')
     util.mkdir( os.path.dirname(F_stageGD_path) ) # mkdir if not exist
     shutil.copy(F_stageF_path, F_stageGD_path)
@@ -172,7 +172,7 @@ arg_lr_GD = GD_max_ious.argmax(axis=0)
 lr_GD = lrs[arg_lr_GD[0]] # **opt lr_GD
 
 lrFGD = '%.1e,%.1e,%.1e' % (lr_GD, lr_GD, lr_GD)
-stageGD_name = opt.name + '_%s_b%d/stage%s/lrFGD%s_lbX%.3f' % (opt.dataset, opt.batchSize, stage_str, lrFGD, 1.0)
+stageGD_name = opt.name + '_%s_b%d/stage%s/lrFGD%s_lbX%.1e' % (opt.dataset, opt.batchSize, stage_str, lrFGD, 1.0)
 G_stageGD_path = os.path.join(opt.checkpoints_dir, stageGD_name, 'netG.pth')
 D_stageGD_path = os.path.join(opt.checkpoints_dir, stageGD_name, 'netD.pth')
 
@@ -190,7 +190,7 @@ lrFGD = '%.1e,%.1e,%.1e' % (lr_F, lr_GD, lr_GD)
 stage_str = 'F:2,G:1,D:1'
 
 for lb in lambda_xs:
-    stageF2_name = opt.name + '_%s_b%d/stage%s/lrFGD%s_lbX%.3f' % (opt.dataset, opt.batchSize, stage_str, lrFGD, lb)
+    stageF2_name = opt.name + '_%s_b%d/stage%s/lrFGD%s_lbX%.1e' % (opt.dataset, opt.batchSize, stage_str, lrFGD, lb)
     F_stageF2_path = os.path.join(opt.checkpoints_dir, stageF2_name, 'netF.pth')
     G_stageF2_path = os.path.join(opt.checkpoints_dir, stageF2_name, 'netG.pth')
     D_stageF2_path = os.path.join(opt.checkpoints_dir, stageF2_name, 'netD.pth')
@@ -205,16 +205,16 @@ F2_max_ious = batch_train([lrFGD], lambda_xs, stage_str)
 arg_lb_x = F2_max_ious.argmax(axis=1)
 lb_x = lambda_xs[arg_lb_x[0]] # **opt lb_x
 
-stageF2_name = opt.name + '_%s_b%d/stage%s/lrFGD%s_lbX%.3f' % (opt.dataset, opt.batchSize, stage_str, lrFGD, lb_x)
+stageF2_name = opt.name + '_%s_b%d/stage%s/lrFGD%s_lbX%.1e' % (opt.dataset, opt.batchSize, stage_str, lrFGD, lb_x)
 F_stageF2_path = os.path.join(opt.checkpoints_dir, stageF2_name, 'netF.pth')
 
-print('\n==> Stage F2: mIoU = %f by lb_x = %.3f\n' % (F2_max_ious.max(), lb_x))
+print('\n==> Stage F2: mIoU = %f by lb_x = %.1e\n' % (F2_max_ious.max(), lb_x))
 
 #----------------------------------------------------------------
 # stage F:2,G:2,D:2: update all nets with lr_F --> lambda_x
 stage_str = 'F:2,G:2,D:2'
 lrFGD = '%.1e,%.1e,%.1e' % (lr_F, lr_GD / lb_x, lr_GD / lb_x)
-stageFGD_name = opt.name + '_%s_b%d/stage%s/lrFGD%s_lbX%.3f' % (opt.dataset, opt.batchSize, stage_str, lrFGD, lb_x)
+stageFGD_name = opt.name + '_%s_b%d/stage%s/lrFGD%s_lbX%.1e' % (opt.dataset, opt.batchSize, stage_str, lrFGD, lb_x)
 
 F_stageFGD_path = os.path.join(opt.checkpoints_dir, stageFGD_name, 'netF.pth')
 G_stageFGD_path = os.path.join(opt.checkpoints_dir, stageFGD_name, 'netG.pth')

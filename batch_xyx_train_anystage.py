@@ -103,14 +103,14 @@ def batch_train(lrs, lambda_xs, stage_str):
             cmd = "CUDA_VISIBLE_DEVICES=%s %s xyx_train.py --name %s --checkpoints_dir ./checkpoints --output_nc %d --dataset %s --batchSize %d " \
                   "--heightSize %d --widthSize %d --start_epoch %d --niter %d --drop_lr %d --resize_or_crop %s " \
                   "--ignore_index %d --unsup_portion %d --portion_total %d --unsup_sampler %s " \
-                  "--port %d --gpu_ids %d --lrFGD %s --lambda_x %.3f --stage %s" \
+                  "--port %d --gpu_ids %d --lrFGD %s --lambda_x %.1e --stage %s" \
                 % (opt.gpu_ids, pybin, opt.name, opt.output_nc, opt.dataset, opt.batchSize, \
                    opt.heightSize, opt.widthSize, opt.start_epoch, opt.niter, opt.drop_lr, opt.resize_or_crop, \
                    opt.ignore_index, opt.unsup_portion, opt.portion_total, opt.unsup_sampler, \
                    opt.port, 0, lrFGD, lb, stage_str) # NOTE: only lrFGD, lb, stage change
             print(cmd + '\n')
 
-            outfile = "./logs/%s_%s_b%d/stage%s_lrFGD%s_lb%.3f.log" % (opt.name, opt.dataset, opt.batchSize, stage_str, lrFGD, lb)
+            outfile = "./logs/%s_%s_b%d/stage%s_lrFGD%s_lb%.1e.log" % (opt.name, opt.dataset, opt.batchSize, stage_str, lrFGD, lb)
             util.mkdir( os.path.dirname(outfile) ) # mkdir if not exist
 
             with open(outfile, 'w') as output_f:
@@ -118,7 +118,7 @@ def batch_train(lrs, lambda_xs, stage_str):
                 #p = call_func(cmd, stdin=open('/dev/null'), stdout=subprocess.PIPE, stderr=output_f, shell=True)
                 p.wait()
 
-            lr_lb_name = opt.name + '_%s_b%d/stage%s/lrFGD%s_lbX%.3f' % (opt.dataset, opt.batchSize, stage_str, lrFGD, lb)
+            lr_lb_name = opt.name + '_%s_b%d/stage%s/lrFGD%s_lbX%.1e' % (opt.dataset, opt.batchSize, stage_str, lrFGD, lb)
             logfile = os.path.join(opt.checkpoints_dir, lr_lb_name, 'loss_log.txt')
             assert(os.path.exists(logfile))
             with open(logfile, 'r') as log_f:
