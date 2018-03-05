@@ -103,7 +103,7 @@ def batch_train(lrs, lambda_xs, stage_str):
             cmd = "CUDA_VISIBLE_DEVICES=%s %s xyx_train.py --name %s --checkpoints_dir ./checkpoints --output_nc %d --dataset %s --batchSize %d " \
                   "--heightSize %d --widthSize %d --start_epoch %d --niter %d --drop_lr %d --resize_or_crop %s " \
                   "--ignore_index %d --unsup_portion %d --portion_total %d --unsup_sampler %s " \
-                  "--port %d --gpu_ids %d --lrFGD %s --lambda_x %.3f --stage %s --display_id 0 --no_html" \
+                  "--port %d --gpu_ids %d --lrFGD %s --lambda_x %.3f --stage %s" \
                 % (opt.gpu_ids, pybin, opt.name, opt.output_nc, opt.dataset, opt.batchSize, \
                    opt.heightSize, opt.widthSize, opt.start_epoch, opt.niter, opt.drop_lr, opt.resize_or_crop, \
                    opt.ignore_index, opt.unsup_portion, opt.portion_total, opt.unsup_sampler, \
@@ -128,18 +128,26 @@ def batch_train(lrs, lambda_xs, stage_str):
     return max_ious
 
 #----------------------------------------------------------------
+# stage F:2,G:2,D:2: update all nets with lr_F --> lambda_x
+stage_str = 'F:2,G:1,D:1'
+lr_F = 1e-4
+lr_GD = 1e-4
+lb_x = 1e-4
+lrFGD = '%.1e,%.1e,%.1e' % (lr_F, lr_GD, lr_GD)
+
+F2_max_ious = batch_train([lrFGD], [lb_x], stage_str)
+
+print('\n==> Stage F2: mIoU = %f\n' % (F2_max_ious.max()))
 
 
 #----------------------------------------------------------------
-# stage F:2,G:2,D:2: update all nets with lr_F --> lambda_x
-stage_str = 'F:2,G:2,D:2'
-lr_F = 1e-4
-lr_GD = 1e-4
-lb_x = 0.01
-lrFGD = '%.1e,%.1e,%.1e' % (lr_F, lr_GD / lb_x, lr_GD / lb_x)
-
-FGD_max_ious = batch_train([lrFGD], [lb_x], stage_str)
-
-print('\n==> Stage FGD: mIoU = %f\n' % (FGD_max_ious.max()))
-
-# ==> Stage FGD: mIoU = 0.737043
+## stage F:2,G:2,D:2: update all nets with lr_F --> lambda_x
+#stage_str = 'F:2,G:2,D:2'
+#lr_F = 1e-4
+#lr_GD = 1e-4
+#lb_x = 0.01
+#lrFGD = '%.1e,%.1e,%.1e' % (lr_F, lr_GD / lb_x, lr_GD / lb_x)
+#
+#FGD_max_ious = batch_train([lrFGD], [lb_x], stage_str)
+#
+#print('\n==> Stage FGD: mIoU = %f\n' % (FGD_max_ious.max()))

@@ -103,7 +103,7 @@ def batch_train(lrs, lambda_xs, stage_str):
             cmd = "CUDA_VISIBLE_DEVICES=%s %s xyx_train.py --name %s --checkpoints_dir ./checkpoints --output_nc %d --dataset %s --batchSize %d " \
                   "--heightSize %d --widthSize %d --start_epoch %d --niter %d --drop_lr %d --resize_or_crop %s " \
                   "--ignore_index %d --unsup_portion %d --portion_total %d --unsup_sampler %s " \
-                  "--port %d --gpu_ids %d --lrFGD %s --lambda_x %.3f --stage %s --display_id 0 --no_html" \
+                  "--port %d --gpu_ids %d --lrFGD %s --lambda_x %.3f --stage %s" \
                 % (opt.gpu_ids, pybin, opt.name, opt.output_nc, opt.dataset, opt.batchSize, \
                    opt.heightSize, opt.widthSize, opt.start_epoch, opt.niter, opt.drop_lr, opt.resize_or_crop, \
                    opt.ignore_index, opt.unsup_portion, opt.portion_total, opt.unsup_sampler, \
