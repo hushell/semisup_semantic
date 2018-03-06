@@ -129,7 +129,7 @@ def populate_xy_hat(temperature):
 
 #-----------------------------------------------------------------------
 from util.meter import SegmentationMeter
-def evaluation(epoch):
+def evaluation(epoch, do_G=False):
     heightSize = val_loader.dataset.heightSize
     widthSize = val_loader.dataset.widthSize
     xx = torch.FloatTensor(1, opt.input_nc, heightSize, widthSize)
@@ -139,6 +139,9 @@ def evaluation(epoch):
         yy_int = yy_int.cuda(opt.gpu_ids[0])
 
     net['F'].eval()
+    if do_G:
+        net['G'].eval()
+
     eval_stats = SegmentationMeter(n_class=opt.output_nc, ignore_index=opt.ignore_index)
     E_loss_CE = []
 
@@ -155,10 +158,15 @@ def evaluation(epoch):
         gt = yy_int.cpu().numpy()
         eval_stats.update_confmat(gt, pred)
 
+        if do_G:
+            x_tilde = net['G'](y_hat) # x -> y_hat -> x_tilde
+
         # visualization
         if i % 10 == 0:
             images = {'TEST_x':v_x.data.cpu(),
                       'TEST_y':v_y_int.data.cpu().numpy(), 'TEST_y_hat':y_hat.data.cpu().numpy().argmax(1)}
+            if do_G:
+                images['TEST_x_tilde'] = x_tilde.data.cpu().numpy()
             display_imgs(images, epoch, i, do_save=2)
 
     print('EVAL at epoch %d ==> average CE = %.3f' % (epoch, sum(E_loss_CE).data[0] / len(val_loader)))
@@ -172,8 +180,8 @@ def evaluation(epoch):
     with open(visualizer.log_name, "a") as log_file:
         log_file.write('%s' % msg)
 
-    if opt.updates['F'] == 2:
-        net['F'].train()
+    net['F'].train()
+    net['G'].train()
 
     return eval_results[0]['Mean IoU']
 
