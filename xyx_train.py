@@ -68,10 +68,12 @@ for k in net.keys():
 
     # train or freeze
     if opt.updates[k] == 2:
+        print('Training net[%s]' % k)
         net[k].train()
         for param in net[k].parameters():
             param.requires_grad = True
     else:
+        print('Freezing net[%s]' % k)
         net[k].eval() # NOTE: to disable batchnorm updates
         for param in net[k].parameters():
             param.requires_grad = False
@@ -90,6 +92,7 @@ if len(opt.gpu_ids) > 0:
 optimizer = dict()
 for k in net.keys():
     if opt.updates[k] == 2:
+        print('Creating optimizer for net[%s]' % k)
         optimizer[k] = optim.Adam(net[k].parameters(), lr=opt.lrFGD[k], betas=(opt.beta1, 0.999))
 
 def adjust_lr(epoch):
@@ -129,7 +132,7 @@ def populate_xy_hat(temperature):
 
 #-----------------------------------------------------------------------
 from util.meter import SegmentationMeter
-def evaluation(epoch, do_G=False):
+def evaluation(epoch, do_G=False, subset='train'):
     heightSize = val_loader.dataset.heightSize
     widthSize = val_loader.dataset.widthSize
     xx = torch.FloatTensor(1, opt.input_nc, heightSize, widthSize)
@@ -166,13 +169,13 @@ def evaluation(epoch, do_G=False):
             images = {'TEST_x':v_x.data.cpu(),
                       'TEST_y':v_y_int.data.cpu().numpy(), 'TEST_y_hat':y_hat.data.cpu().numpy().argmax(1)}
             if do_G:
-                images['TEST_x_tilde'] = x_tilde.data.cpu().numpy()
-            display_imgs(images, epoch, i, do_save=2)
+                images['TEST_x_tilde'] = x_tilde.data.cpu()
+            display_imgs(images, epoch, i, subset=subset, do_save=2)
 
     print('EVAL at epoch %d ==> average CE = %.3f' % (epoch, sum(E_loss_CE).data[0] / len(val_loader)))
     eval_results = eval_stats.get_eval_results()
     msg = 'EVAL at epoch %d [%d images in %.2f sec] ==> %s\n' % \
-                (epoch, len(val_loader), time.time()-start_time, eval_results[0])
+          (epoch, len(val_loader), time.time()-start_time, eval_results[0])
     msg += 'Per-class IoU:\n'
     msg += ''.join(['%s: %.2f\n' % (cname,ciu)
                     for cname,ciu in zip(val_loader.dataset.label2name, eval_results[1])])
@@ -180,8 +183,10 @@ def evaluation(epoch, do_G=False):
     with open(visualizer.log_name, "a") as log_file:
         log_file.write('%s' % msg)
 
-    net['F'].train()
-    net['G'].train()
+    if opt.updates['F'] == 2:
+        net['F'].train() # NOTE: F:1,G:2,D:2, train() allows BN updates, which improve 1.2%
+    if opt.updates['G'] == 2:
+        net['G'].train()
 
     return eval_results[0]['Mean IoU']
 

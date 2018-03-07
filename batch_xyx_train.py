@@ -130,7 +130,7 @@ def batch_train(lrs, lambda_xs, stage_str):
 #----------------------------------------------------------------
 # stage F:2,G:0,D:0 --> lr_F
 #lrs = [1e-2, 1e-3, 1e-4]
-lrs = [1e-2, 1e-4] # DEBUG
+lrs = [1e-4] # DEBUG
 stage_str = 'F:2,G:0,D:0'
 
 F_max_ious = batch_train(lrs, [1.0], stage_str)
@@ -185,7 +185,7 @@ opt.niter = 65
 #----------------------------------------------------------------
 # stage F:2,G:1,D:1: freeze G & D, update F with lr_F --> lambda_x
 #lambda_xs = [100, 10, 1, 1e-1, 1e-2]
-lambda_xs = [100, 1, 1e-2] # DEBUG
+lambda_xs = [1] # DEBUG
 lrFGD = '%.1e,%.1e,%.1e' % (lr_F, lr_GD, lr_GD)
 stage_str = 'F:2,G:1,D:1'
 
