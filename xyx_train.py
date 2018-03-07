@@ -213,20 +213,23 @@ for epoch in range(opt.start_epoch, opt.niter):
 
     # on begin epoch
     adjust_lr(epoch)
+
+    if opt.updates['F'] == 1 and opt.updates['G'] == 2: # F:1,G:2,D:2
+        net['F'].temperature = np.maximum(TAU0*np.exp(-ANNEAL_RATE*g_it),MIN_TEMP)
+    elif opt.updates['F'] == 2 and opt.updates['G'] == 0: # F:2,G:0,D:0
+        net['F'].temperature = 0
+    else:
+        net['F'].temperature = MIN_TEMP
     print('netF.temperature = %.6f' % net['F'].temperature)
+
     epoch_start_time = time.time()
 
     for i in range(len(x_loader)):
         iter_start_time = time.time()
 
-        if g_it % 500 == 0 and opt.updates['G'] == 0 and opt.updates['F'] == 2: # F:2,G:0,D:0
-            net['F'].temperature = np.maximum(TAU0*np.exp(-ANNEAL_RATE*g_it),MIN_TEMP)
-        elif opt.updates['F'] != 2: # other stages
-            net['F'].temperature = MIN_TEMP
-
         if opt.updates['F'] != 2: # F:1,G:2,D:2
             if g_it < 25 or g_it % 500 == 0:
-                D_ITERS, G_ITERS = 50, 1
+                D_ITERS, G_ITERS = 100, 1
             else:
                 D_ITERS, G_ITERS = 5, 1
         else: # F:2,G:2,D:2
@@ -309,10 +312,11 @@ for epoch in range(opt.start_epoch, opt.niter):
 
             # -------------------------------------------------------------------
             # X, Y augmented
-            # TODO: coeffs for g_losses
+            # TODO: coeffs for g_losses: L1 and (D_R - D_F)^2 should be weighted
 
             tt2 = time.time()
-            if opt.updates['G'] > 0 and opt.updates['F'] > 0: # log p(x)
+            # log p(x)
+            if opt.updates['G'] > 0 and opt.updates['F'] > 0: # NOT for F:2,G:0,D:0
                 v_x, v_y_int, log_y, y_hat = populate_xy_hat(net['F'].temperature)
 
                 x_tilde = net['G'](y_hat) # x -> y_hat -> x_tilde

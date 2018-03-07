@@ -111,7 +111,12 @@ def one_hot(y_int, opt):
     return y
 
 def gumbel_softmax(log_probs, temperature=1.0, gpu_ids=[], eps=1e-20):
-    ''' log_probs is a Variable '''
+    ''' sample a multinomial RV by one_hot(argmax_y [log_prob_y + g_y])
+        where argmax is approx by softmax(log_prob / tau), exact when tau -> 0
+        NOTE: log_probs is a Variable
+    '''
+    if temperature == 0:
+        return log_probs
     # Gumbel(0,1): -log( -log(U + eps) + eps )
     noise = torch.rand(log_probs.size())
     noise.add_(eps).log_().neg_()
@@ -119,10 +124,13 @@ def gumbel_softmax(log_probs, temperature=1.0, gpu_ids=[], eps=1e-20):
     if len(gpu_ids) > 0:
         noise = noise.cuda()
     noise = Variable(noise)
-    return nn.LogSoftmax()((log_probs + noise) / temperature)
+    return F.log_softmax( (log_probs + noise) / temperature, dim=1 )
 
 def noise_log_y(y, temperature=1.0, gpu_ids=[], eps=1e-20):
-    ''' y is a Variable '''
+    ''' log(y + eps) = log_prob, where y is one_hot
+        return log_softmax( log_prob + gumbel(0,1) / tau ), which is a sample near GT
+        NOTE: y is a Variable
+    '''
     log_probs_gt = torch.log(y + eps)
     return gumbel_softmax(log_probs_gt, temperature, gpu_ids, eps) # add noise
 
@@ -147,7 +155,7 @@ class FX2Y(nn.Module):
         self.temperature = temperature
 
         #self.softmax = nn.Softmax2d()
-        self.logsoftmax = nn.LogSoftmax()
+        self.logsoftmax = nn.LogSoftmax(dim=1)
 
         if opt.archF == 'style_transform':
             from models.style_transform_resnet import StyleTransformResNet
@@ -204,6 +212,7 @@ class GY2X(nn.Module):
             raise ValueError('%s not recognized!' % opt.archG)
 
     def forward(self, input):
+        input = torch.exp(input)
         x_hat = self.model(input)
         return x_hat
 

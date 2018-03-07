@@ -44,7 +44,7 @@ class StyleTransformResNet(nn.Module):
         model += [nn.Conv2d(ngf, output_nc, kernel_size=7, padding=3)] # out_size = input_size
 
         if last_layer == 'softmax':
-            model += [nn.LogSoftmax()]
+            model += [nn.LogSoftmax(dim=1)]
         elif last_layer == 'tanh':
             model += [nn.Tanh()]
         else:
