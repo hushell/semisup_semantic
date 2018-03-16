@@ -1,10 +1,56 @@
-cityscapes:
-run batch_xyx_train.py --name xyx_0 --checkpoints_dir ./checkpoints --output_nc 20 --dataset cityscapesAB --batchSize 4 --heightSize 224 --widthSize 224 --niter 100 --resize_or_crop crop --ignore_index 0 --unsup_portion 89 --portion_total 90 --port 1236 --gpu_ids 2
-
-
+---------------------------------------------------------------------------------------------------------------
 horse:
 run batch_xyx_train.py --name xyx_temp --checkpoints_dir ./checkpoints --output_nc 2 --dataset horse --batchSize 4 --heightSize 32 --widthSize 32 --niter 100 --resize_or_crop crop --unsup_portion 0 --portion_total 10 --port 1236 --gpu_ids 0
 
 python xyx_train.py --name temp --checkpoints_dir ./checkpoints --output_nc 2 --dataset horse --batchSize 4 --heightSize 32 --widthSize 32 --niter 91 --drop_lr 5 --resize_or_crop crop --unsup_portion 0 --portion_total 10 --unsup_sampler sep --port 9900 --gpu_ids 0 --lrFGD 1.0e-04,1.0e-04,1.0e-04 --lambda_x 1.000 --stage F:2,G:0,D:0 --archF resnet50_fcn
 
 python xyx_train.py --name temp1 --checkpoints_dir ./checkpoints --output_nc 20 --dataset cityscapesAB --batchSize 4 --heightSize 224 --widthSize 224 --niter 100 --drop_lr 5 --resize_or_crop crop --ignore_index 0 --unsup_portion 89 --portion_total 90 --unsup_sampler sep --port 9900 --gpu_ids 1 --lrFGD 1.0e-04,1.0e-04,1.0e-04 --lambda_x 1.000 --stage F:2,G:2,D:2 --archF resnet50_fcn
+
+---------------------------------------------------------------------------------------------------------------
+horse batch:
+
+python batch_xyx_train.py --name xyx_100 --checkpoints_dir ./checkpoints --output_nc 2 --dataset horse --batchSize 4 --heightSize 32 --widthSize 32 --start_epoch 0 --niter 100 --drop_lr 5 --resize_or_crop crop --ignore_index -100 --unsup_portion 9 --portion_total 10 --unsup_sampler sep --port 1236 --gpu_ids 1
+CUDA_VISIBLE_DEVICES=1 /home/hushell/anaconda3/bin/python xyx_train.py --name xyx_100 --checkpoints_dir ./checkpoints --output_nc 2 --dataset horse --batchSize 4 --heightSize 32 --widthSize 32 --start_epoch 0 --niter 100 --drop_lr 5 --resize_or_crop crop --ignore_index -100 --unsup_portion 9 --portion_total 10 --unsup_sampler sep --port 1236 --gpu_ids 0 --lrFGD 1.0e-04,1.0e-04,1.0e-04 --lambda_x 1.0e+00 --stage F:2,G:0,D:0
+
+
+==> Stage F: mIoU = 0.659819 by lr_F = 1.0e-04
+
+CUDA_VISIBLE_DEVICES=1 /home/hushell/anaconda3/bin/python xyx_train.py --name xyx_100 --checkpoints_dir ./checkpoints --output_nc 2 --dataset horse --batchSize 4 --heightSize 32 --widthSize 32 --start_epoch 0 --niter 100 --drop_lr 5 --resize_or_crop crop --ignore_index -100 --unsup_portion 9 --portion_total 10 --unsup_sampler sep --port 1236 --gpu_ids 0 --lrFGD 1.0e-04,1.0e-04,1.0e-04 --lambda_x 1.0e+00 --stage F:1,G:2,D:2
+
+
+==> Stage GD: mIoU = 0.672312 by lr_GD = 1.0e-04
+
+CUDA_VISIBLE_DEVICES=1 /home/hushell/anaconda3/bin/python xyx_train.py --name xyx_100 --checkpoints_dir ./checkpoints --output_nc 2 --dataset horse --batchSize 4 --heightSize 32 --widthSize 32 --start_epoch 0 --niter 65 --drop_lr 5 --resize_or_crop crop --ignore_index -100 --unsup_portion 9 --portion_total 10 --unsup_sampler sep --port 1236 --gpu_ids 0 --lrFGD 1.0e-04,1.0e-04,1.0e-04 --lambda_x 1.0e+00 --stage F:2,G:1,D:1
+
+
+==> Stage F2: mIoU = 0.659819 by lb_x = 1.0e+00
+
+CUDA_VISIBLE_DEVICES=1 /home/hushell/anaconda3/bin/python xyx_train.py --name xyx_100 --checkpoints_dir ./checkpoints --output_nc 2 --dataset horse --batchSize 4 --heightSize 32 --widthSize 32 --start_epoch 0 --niter 65 --drop_lr 5 --resize_or_crop crop --ignore_index -100 --unsup_portion 9 --portion_total 10 --unsup_sampler sep --port 1236 --gpu_ids 0 --lrFGD 1.0e-04,1.0e-04,1.0e-04 --lambda_x 1.0e+00 --stage F:2,G:2,D:2
+
+---------------------------------------------------------------------------------------------------------------
+cityscapes batch:
+
+python batch_xyx_train.py --name xyx_2 --checkpoints_dir ./checkpoints --output_nc 20 --dataset cityscapesAB --batchSize 4 --heightSize 224 --widthSize 224 --start_epoch 0 --niter 150 --drop_lr 5 --resize_or_crop crop --ignore_index 0 --unsup_portion 89 --portion_total 90 --unsup_sampler sep --port 1236 --gpu_ids 3
+CUDA_VISIBLE_DEVICES=3 /home/hushell/anaconda3/bin/python xyx_train.py --name xyx_2 --checkpoints_dir ./checkpoints --output_nc 20 --dataset cityscapesAB --batchSize 4 --heightSize 224 --widthSize 224 --start_epoch 0 --niter 150 --drop_lr 5 --resize_or_crop crop --ignore_index 0 --unsup_portion 89 --portion_total 90 --unsup_sampler sep --port 1236 --gpu_ids 0 --lrFGD 1.0e-04,1.0e-04,1.0e-04 --lambda_x 1.0e+00 --stage F:2,G:0,D:0
+
+
+==> Stage F: mIoU = 0.240081 by lr_F = 1.0e-04
+
+CUDA_VISIBLE_DEVICES=3 /home/hushell/anaconda3/bin/python xyx_train.py --name xyx_2 --checkpoints_dir ./checkpoints --output_nc 20 --dataset cityscapesAB --batchSize 4 --heightSize 224 --widthSize 224 --start_epoch 0 --niter 150 --drop_lr 5 --resize_or_crop crop --ignore_index 0 --unsup_portion 89 --portion_total 90 --unsup_sampler sep --port 1236 --gpu_ids 0 --lrFGD 1.0e-04,1.0e-04,1.0e-04 --lambda_x 1.0e+00 --stage F:1,G:2,D:2
+
+
+==> Stage GD: mIoU = 0.240081 by lr_GD = 1.0e-04
+
+CUDA_VISIBLE_DEVICES=3 /home/hushell/anaconda3/bin/python xyx_train.py --name xyx_2 --checkpoints_dir ./checkpoints --output_nc 20 --dataset cityscapesAB --batchSize 4 --heightSize 224 --widthSize 224 --start_epoch 0 --niter 100 --drop_lr 5 --resize_or_crop crop --ignore_index 0 --unsup_portion 89 --portion_total 90 --unsup_sampler sep --port 1236 --gpu_ids 0 --lrFGD 1.0e-04,1.0e-04,1.0e-04 --lambda_x 1.0e-02 --stage F:2,G:1,D:1
+
+CUDA_VISIBLE_DEVICES=3 /home/hushell/anaconda3/bin/python xyx_train.py --name xyx_2 --checkpoints_dir ./checkpoints --output_nc 20 --dataset cityscapesAB --batchSize 4 --heightSize 224 --widthSize 224 --start_epoch 0 --niter 100 --drop_lr 5 --resize_or_crop crop --ignore_index 0 --unsup_portion 89 --portion_total 90 --unsup_sampler sep --port 1236 --gpu_ids 0 --lrFGD 1.0e-04,1.0e-04,1.0e-04 --lambda_x 1.0e-04 --stage F:2,G:1,D:1
+
+CUDA_VISIBLE_DEVICES=3 /home/hushell/anaconda3/bin/python xyx_train.py --name xyx_2 --checkpoints_dir ./checkpoints --output_nc 20 --dataset cityscapesAB --batchSize 4 --heightSize 224 --widthSize 224 --start_epoch 0 --niter 100 --drop_lr 5 --resize_or_crop crop --ignore_index 0 --unsup_portion 89 --portion_total 90 --unsup_sampler sep --port 1236 --gpu_ids 0 --lrFGD 1.0e-04,1.0e-04,1.0e-04 --lambda_x 1.0e-08 --stage F:2,G:1,D:1
+
+
+==> Stage F2: mIoU = 0.241478 by lb_x = 1.0e-04
+
+CUDA_VISIBLE_DEVICES=3 /home/hushell/anaconda3/bin/python xyx_train.py --name xyx_2 --checkpoints_dir ./checkpoints --output_nc 20 --dataset cityscapesAB --batchSize 4 --heightSize 224 --widthSize 224 --start_epoch 0 --niter 100 --drop_lr 5 --resize_or_crop crop --ignore_index 0 --unsup_portion 89 --portion_total 90 --unsup_sampler sep --port 1236 --gpu_ids 0 --lrFGD 1.0e-04,1.0e+00,1.0e+00 --lambda_x 1.0e-04 --stage F:2,G:2,D:2
+
+
+==> Stage FGD: mIoU = 0.242226

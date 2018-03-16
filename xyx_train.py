@@ -116,6 +116,7 @@ MIN_TEMP = 0.5
 
 #-----------------------------------------------------------------------
 def populate_xy_hat(temperature):
+    ''' ONLY used by G,D '''
     # X
     populate_xy(t_x, None, x_loader, opt)
     v_x = Variable(t_x)
@@ -219,6 +220,7 @@ for epoch in range(opt.start_epoch, opt.niter):
     # on begin epoch
     adjust_lr(epoch)
 
+    # TODO: seems add gumbel_softmax improves .6598 to .73
     if opt.updates['F'] == 1 and opt.updates['G'] == 2: # F:1,G:2,D:2
         net['F'].temperature = np.maximum(TAU0*np.exp(-ANNEAL_RATE*g_it),MIN_TEMP)
     elif opt.updates['F'] == 2 and opt.updates['G'] == 0: # F:2,G:0,D:0
@@ -231,6 +233,11 @@ for epoch in range(opt.start_epoch, opt.niter):
 
     for i in range(len(x_loader)):
         iter_start_time = time.time()
+
+        #if g_it % 500 == 0 and opt.updates['G'] == 0 and opt.updates['F'] == 2: # F:2,G:0,D:0
+        #    net['F'].temperature = np.maximum(TAU0*np.exp(-ANNEAL_RATE*g_it),MIN_TEMP)
+        #elif opt.updates['F'] != 2: # other stages
+        #    net['F'].temperature = MIN_TEMP
 
         if opt.updates['F'] != 2: # F:1,G:2,D:2
             if g_it < 25 or g_it % 500 == 0:

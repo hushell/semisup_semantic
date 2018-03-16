@@ -180,12 +180,12 @@ print('\n==> Stage GD: mIoU = %f by lr_GD = %.1e\n' % (GD_max_ious.max(), lr_GD)
 
 #----------------------------------------------------------------
 # fine tune stages:
-opt.niter = 65
+opt.niter = 100
 
 #----------------------------------------------------------------
 # stage F:2,G:1,D:1: freeze G & D, update F with lr_F --> lambda_x
 #lambda_xs = [100, 10, 1, 1e-1, 1e-2]
-lambda_xs = [1] # DEBUG
+lambda_xs = [1e-2, 1e-4, 1e-8] # DEBUG
 lrFGD = '%.1e,%.1e,%.1e' % (lr_F, lr_GD, lr_GD)
 stage_str = 'F:2,G:1,D:1'
 
