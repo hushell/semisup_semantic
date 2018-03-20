@@ -283,6 +283,7 @@ for epoch in range(opt.start_epoch, opt.niter):
 
         for g_i in range(G_ITERS):
             g_losses = []
+            images = {}
 
             def update_FG():
                 global g_it
@@ -311,6 +312,11 @@ for epoch in range(opt.start_epoch, opt.niter):
                 g_losses.append( opt.lambda_y * paired_loss_CE ) # CE
                 stats['P_CE'] = paired_loss_CE.data[0]
 
+                # visdom
+                images['xP'] = v_x.data.cpu()
+                images['yP'] = v_y_int.data.cpu().numpy()
+                images['yP_hat'] = y_hat.data.cpu().numpy().argmax(1)
+
             if opt.updates['G'] == 2: # log p(x | y)
                 v_y = Variable( one_hot(t_y_int, opt) )
                 log_y = noise_log_y(v_y, net['F'].temperature, opt.gpu_ids)
@@ -319,6 +325,9 @@ for epoch in range(opt.start_epoch, opt.niter):
                 paired_loss_L1 = L1(x_hat, v_x)
                 g_losses.append( opt.lambda_x * paired_loss_L1 ) # L1
                 stats['P_L1'] = paired_loss_L1.data[0]
+
+                # visdom
+                images['xP_hat'] = x_hat.data.cpu()
 
             update_FG()
 
@@ -354,9 +363,15 @@ for epoch in range(opt.start_epoch, opt.niter):
 
                 update_FG()
 
-        tt3 = time.time()
+                # visdom
+                images['x'] = v_x.data.cpu()
+                #images['y'] = v_y_int.data.cpu().numpy()
+                images['y_hat'] = y_hat.data.cpu().numpy().argmax(1)
+                images['x_tilde'] = x_tilde.data.cpu()
+
         # time spent per sample
         #titer = (time.time() - iter_start_time) / opt.batchSize
+        tt3 = time.time()
         titer = (tt3 - iter_start_time)
 
         # -------------------------------------------------------------------
@@ -373,16 +388,6 @@ for epoch in range(opt.start_epoch, opt.niter):
                         **stats))
 
         if i % 50 == 0:
-            # visualization
-            if opt.updates['G'] == 2:
-                images = {'x':v_x.data.cpu(), 'x_hat':x_hat.data.cpu(), 'x_tilde':x_tilde.data.cpu(),
-                          'y':v_y_int.data.cpu().numpy(), 'y_hat':y_hat.data.cpu().numpy().argmax(1)}
-            elif opt.updates['G'] == 1:
-                images = {'x':v_x.data.cpu(), 'x_tilde':x_tilde.data.cpu(),
-                          'y':v_y_int.data.cpu().numpy(), 'y_hat':y_hat.data.cpu().numpy().argmax(1)}
-            else:
-                images = {'x':v_x.data.cpu(),
-                          'y':v_y_int.data.cpu().numpy(), 'y_hat':y_hat.data.cpu().numpy().argmax(1)}
             display_imgs(images, epoch, i)
 
 
