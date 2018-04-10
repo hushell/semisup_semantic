@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from torch.nn import init
 from torch.autograd import Variable
 import numpy as np
 from util.util import normalize
@@ -12,10 +13,12 @@ def weights_init(m):
     classname = m.__class__.__name__
     #print('Initiating %s' % classname)
     if classname.find('Conv') != -1:
-        m.weight.data.normal_(0.0, 0.02)
-    elif classname.find('BatchNorm2d') != -1 or  classname.find('InstanceNorm2d') != -1:
-        m.weight.data.normal_(1.0, 0.02)
-        m.bias.data.fill_(0)
+        init.normal(m.weight.data, 0.0, 0.02)
+    elif classname.find('Linear') != -1:
+        init.normal(m.weight.data, 0.0, 0.02)
+    elif classname.find('BatchNorm2d') != -1:
+        init.normal(m.weight.data, 1.0, 0.02)
+        init.constant(m.bias.data, 0.0)
 
 def get_norm_layer(norm_type):
     if norm_type == 'batch':
