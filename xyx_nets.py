@@ -10,11 +10,12 @@ parser = argparse.ArgumentParser()
 ################################
 # optimizer
 ################################
-parser.add_argument('--niter', type=int, default=200, help='# of iter at starting learning rate')
-parser.add_argument('--lr', type=float, default=0.0002, help='initial learning rate for adam')
-parser.add_argument('--drop_lr', default=5, type=int, help='')
-parser.add_argument('--beta1', type=float, default=0.5, help='momentum term of ADAM')
+parser.add_argument('--niter', type=int, default=100, help='# of iter at starting learning rate')
 parser.add_argument('--niter_decay', type=int, default=100, help='# of iter to linearly decay learning rate to zero')
+parser.add_argument('--lr', type=float, default=0.0002, help='initial learning rate for adam')
+parser.add_argument('--beta1', type=float, default=0.5, help='momentum term of ADAM')
+parser.add_argument('--lr_policy', type=str, default='lambda', help='learning rate policy: lambda|step|plateau')
+parser.add_argument('--lr_decay_iters', type=int, default=50, help='multiply by a gamma every lr_decay_iters iterations')
 
 ################################
 # data settings
