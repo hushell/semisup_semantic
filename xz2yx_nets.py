@@ -51,12 +51,13 @@ parser.add_argument('--widthSize', type=int, default=256, help='crop to this wid
 parser.add_argument('--heightSize', type=int, default=256, help='crop to this height')
 parser.add_argument('--input_nc', type=int, default=3, help='# of input image channels')
 parser.add_argument('--output_nc', type=int, default=20, help='# of output image channels')
-parser.add_argument('--nz', type=int, default=100, help='size of the latent z vector')
+parser.add_argument('--z_nc', type=int, default=40, help='# of output image channels')
 parser.add_argument('--use_dropout', action='store_true', help='use dropout for the generator')
 parser.add_argument('--ngf', type=int, default=64, help='# of gen filters in first conv layer')
 parser.add_argument('--ndf', type=int, default=64, help='# of discrim filters in first conv layer')
 parser.add_argument('--noise', default='sphere', help='normal|sphere')
 parser.add_argument('--n_layers_D', type=int, default=3, help='')
+parser.add_argument('--x_drop', type=float, default=0.9, help='x dropout rate')
 
 ################################
 # external
@@ -172,17 +173,16 @@ class ResnetBlock(nn.Module):
 
 # net X -> Z
 class FX2Z(nn.Module):
-    def __init__(self, opt):
+    def __init__(self, opt, n_blocks=5):
         super(FX2Z, self).__init__()
         self.gpu_ids = opt.gpu_ids
-        n_blocks = 5
         norm_layer=nn.BatchNorm2d
         use_bias = norm_layer == nn.InstanceNorm2d
         use_dropout = opt.use_dropout
         padding_type='reflect'
         ngf = opt.ngf
         input_nc = opt.input_nc
-        output_nc = opt.output_nc
+        z_nc = opt.z_nc
         n_downsampling = 2
 
         # init conv: input_nc -> ngf
@@ -205,6 +205,21 @@ class FX2Z(nn.Module):
         for i in range(n_blocks):
             model += [ResnetBlock(ngf * mult, padding_type=padding_type, norm_layer=norm_layer, use_dropout=use_dropout, use_bias=use_bias)]
 
+        # upsampling blocks: ngf*4 -> ngf
+        for i in range(n_downsampling):
+            mult = 2**(n_downsampling - i)
+            model += [nn.ConvTranspose2d(ngf * mult, int(ngf * mult / 2),
+                                         kernel_size=3, stride=2,
+                                         padding=1, output_padding=1,
+                                         bias=use_bias),
+                      norm_layer(int(ngf * mult / 2)),
+                      nn.ReLU(True)]
+
+        # final conv: ngf -> z_nc
+        model += [nn.ReflectionPad2d(3)]
+        model += [nn.Conv2d(ngf, z_nc, kernel_size=7, padding=0)]
+        model += [nn.LogSoftmax(dim=1)]
+
         self.model = nn.Sequential(*model)
 
     def forward(self, input):
@@ -218,34 +233,12 @@ class FZ2Y(nn.Module):
     def __init__(self, opt):
         super(FZ2Y, self).__init__()
         self.gpu_ids = opt.gpu_ids
-        n_blocks = 4
-        norm_layer=nn.BatchNorm2d
-        use_bias = norm_layer == nn.InstanceNorm2d
-        use_dropout = opt.use_dropout
-        padding_type='reflect'
-        ngf = opt.ngf
+        z_nc = opt.z_nc
         output_nc = opt.output_nc
-        n_downsampling = 2
 
-        # resnet blocks: ngf*4 -> ngf*4
+        # z_nc -> y_nc by 1x1 conv
         model = []
-        mult = 2**n_downsampling
-        for i in range(n_blocks):
-            model += [ResnetBlock(ngf * mult, padding_type=padding_type, norm_layer=norm_layer, use_dropout=use_dropout, use_bias=use_bias)]
-
-        # upsampling blocks: ngf*4 -> ngf
-        for i in range(n_downsampling):
-            mult = 2**(n_downsampling - i)
-            model += [nn.ConvTranspose2d(ngf * mult, int(ngf * mult / 2),
-                                         kernel_size=3, stride=2,
-                                         padding=1, output_padding=1,
-                                         bias=use_bias),
-                      norm_layer(int(ngf * mult / 2)),
-                      nn.ReLU(True)]
-
-        # final conv: ngf -> nc
-        model += [nn.ReflectionPad2d(3)]
-        model += [nn.Conv2d(ngf, output_nc, kernel_size=7, padding=0)]
+        model += [nn.Conv2d(z_nc, output_nc, kernel_size=1, padding=0)]
         model += [nn.LogSoftmax(dim=1)]
 
         self.model = nn.Sequential(*model)
@@ -256,65 +249,47 @@ class FZ2Y(nn.Module):
         else:
             return self.model(input)
 
-# net Z,Y -> X: G(z,y)
-class GZY2X(nn.Module):
-    def __init__(self, opt):
-        super(GZY2X, self).__init__()
+# net Z -> X: G(z)
+class GZ2X(nn.Module):
+    def __init__(self, opt, n_blocks=5):
+        super(GZ2X, self).__init__()
         self.gpu_ids = opt.gpu_ids
-        n_blocks = 4
+        self.x_drop = opt.x_drop
         norm_layer=nn.BatchNorm2d # TODO: try instanceNorm
         use_bias = norm_layer == nn.InstanceNorm2d
         use_dropout = opt.use_dropout
         padding_type='reflect'
+        n_downsampling = 2
         ngf = opt.ngf
         input_nc = opt.input_nc
         output_nc = opt.output_nc
-        n_downsampling = 2
+        z_nc = opt.z_nc
+        zx_nc = z_nc + input_nc
 
-        # resnet blocks for z: ngf*4 -> ngf*4
+        # resnet blocks
         model = []
-        mult = 2**n_downsampling
         for i in range(n_blocks):
-            model += [ResnetBlock(ngf * mult, padding_type=padding_type, norm_layer=norm_layer, use_dropout=use_dropout, use_bias=use_bias)]
+            model += [ResnetBlock(zx_nc, padding_type=padding_type, norm_layer=norm_layer, use_dropout=use_dropout, use_bias=use_bias)]
 
-        # upsampling blocks: ngf*4 -> ngf
-        for i in range(n_downsampling):
-            mult = 2**(n_downsampling - i)
-            model += [nn.ConvTranspose2d(ngf * mult, int(ngf * mult / 2),
-                                         kernel_size=3, stride=2,
-                                         padding=1, output_padding=1,
-                                         bias=use_bias),
-                      norm_layer(int(ngf * mult / 2)),
-                      nn.ReLU(True)]
-
-        self.branch_z = nn.Sequential(*model)
-
-        # resnet blocks after merged: ngf+nc -> ngf+nc
-        model = []
-        dim_zy = ngf + output_nc
-        for i in range(2):
-            model += [ResnetBlock(dim_zy, padding_type=padding_type, norm_layer=norm_layer, use_dropout=use_dropout, use_bias=use_bias)]
-
-        # final conv: ngf+nc -> 3
+        # final conv: z_nc + x_nc -> x_nc
         model += [nn.ReflectionPad2d(3)]
-        model += [nn.Conv2d(dim_zy, input_nc, kernel_size=7, padding=0)]
+        model += [nn.Conv2d(zx_nc, input_nc, kernel_size=7, padding=0)]
         model += [nn.Tanh()]
 
-        self.merged = nn.Sequential(*model)
+        self.model = nn.Sequential(*model)
 
-    def forward(self, z, y):
-        if self.gpu_ids and isinstance(z.data, torch.cuda.FloatTensor):
-            zz = nn.parallel.data_parallel(self.branch_z, z, self.gpu_ids)
+    def forward(self, z, x):
+        zz = torch.exp(z)
+        #xx = F.dropout(x, p=self.x_drop, training=True)
+        xx = x # do dropout externally
+        zx = torch.cat([zz, xx], 1)
+
+        if self.gpu_ids and isinstance(zx.data, torch.cuda.FloatTensor):
+            x = nn.parallel.data_parallel(self.model, zx, self.gpu_ids)
         else:
-            zz = self.branch_z(z)
-
-        zy = torch.cat([zz, torch.exp(y)], 1)
-
-        if self.gpu_ids and isinstance(z.data, torch.cuda.FloatTensor):
-            x = nn.parallel.data_parallel(self.merged, zy, self.gpu_ids)
-        else:
-            x = self.merged(zy)
+            x = self.model(zx)
         return x
+
 
 # net Discriminator
 from math import ceil
