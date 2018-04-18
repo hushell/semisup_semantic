@@ -238,7 +238,7 @@ class FZ2Y(nn.Module):
 
         # z_nc -> y_nc by 1x1 conv
         model = []
-        model += [nn.Conv2d(z_nc, output_nc, kernel_size=1, padding=0)]
+        model += [nn.Conv2d(z_nc, output_nc, kernel_size=1, stride=1, padding=0)]
         model += [nn.LogSoftmax(dim=1)]
 
         self.model = nn.Sequential(*model)
@@ -281,7 +281,7 @@ class GZ2X(nn.Module):
     def forward(self, z, x):
         zz = torch.exp(z)
         #xx = F.dropout(x, p=self.x_drop, training=True)
-        xx = x # do dropout externally
+        xx = x # NOTE: do dropout externally
         zx = torch.cat([zz, xx], 1)
 
         if self.gpu_ids and isinstance(zx.data, torch.cuda.FloatTensor):

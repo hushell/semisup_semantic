@@ -6,6 +6,7 @@ import inspect, re
 import numpy as np
 import os
 import collections
+import matplotlib.pyplot as plt
 
 # Converts a Tensor into a Numpy array
 # |imtype|: the desired type of the converted numpy array
@@ -15,7 +16,10 @@ def tensor2im(image_tensor, imtype=np.uint8):
     #image_numpy = image_numpy * 255.0
     return image_numpy.astype(imtype)
 
-def tensor2lab(lab_tensor, label2color):
+def tensor2lab(lab_tensor, n_labs=None, label2color=None):
+    assert(n_labs is not None or label2color is not None)
+    if label2color is None:
+        label2color = plt.cm.jet(np.linspace(0,1,n_labs), bytes=True)[:,0:3]
     seg_map = lab_tensor[0] # HW
     seg_map = seg_map.astype(np.int32)
     assert(len(seg_map.shape) == 2)

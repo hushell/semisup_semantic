@@ -24,7 +24,7 @@ assert(opt.unsup_sampler == 'sep')
 print(opt)
 
 # gpu id NOTE: CUDA_VISIBLE_DEVICES=x python foo.py
-#os.environ['CUDA_VISIBLE_DEVICES'] = opt.gpu_ids # absolute ids
+os.environ['CUDA_VISIBLE_DEVICES'] = opt.gpu_ids # absolute ids
 #if len(opt.gpu_ids) > 0:
 #    torch.randn(8).cuda()
 #    os.environ['CUDA_VISIBLE_DEVICES'] = ''
@@ -64,12 +64,11 @@ visualizer = Visualizer(opt)
 
 #########################################################################
 # networks
-TAU0 = 1.0
 
 net =dict()
 net['X2Z'] = FX2Z(opt)
 net['Z2Y'] = FZ2Y(opt)
-net['ZY2X'] = GZY2X(opt)
+net['ZY2X'] = GZ2X(opt) # TODO: ZY2X to Z2X
 net['D'] = NLayerDiscriminator(opt)
 
 for k in net.keys():
@@ -175,8 +174,8 @@ def Y_step(v_x, v_y_int):
     loss = None if v_y_int is None else CE(y_hat, v_y_int)
     return (z_hat, y_hat, loss)
 
-def X_step(z_hat, log_y, v_x):
-    x_inf = net['ZY2X'](z_hat, log_y)
+def X_step(z_hat, v_x_drop, v_x):
+    x_inf = net['ZY2X'](z_hat, v_x_drop)
     return (x_inf, L1(x_inf, v_x))
 
 def update_FHG(g_losses):
@@ -193,8 +192,9 @@ def update_FHG(g_losses):
 
 def D_step(v_x):
     z_hat = net['X2Z'](v_x)
-    y_hat = net['Z2Y'](z_hat)
-    x_hat = net['ZY2X'](z_hat, y_hat)
+    #y_hat = net['Z2Y'](z_hat)
+    v_x_drop,_ = mask_drop(v_x)
+    x_hat = net['ZY2X'](z_hat, v_x_drop)
 
     E_q_D = net['D']( x_hat.detach() ).mean()
     E_p_D = net['D']( v_x ).mean()
@@ -203,16 +203,22 @@ def D_step(v_x):
     optimizers['D'].zero_grad()
     d_loss.backward()
     optimizers['D'].step()
-
-    # TODO: gradient penalty
     # clamp parameters to a cube
     for p in net['D'].parameters():
         p.data.clamp_(CLAMP_LOW, CLAMP_UPP)
 
     return d_loss
 
+from torch.nn.functional import dropout
+def mask_drop(v_x):
+    v_x0 = dropout(v_x[:,0,:,:], p=opt.x_drop, training=True)
+    mask = v_x0.le(0).unsqueeze_(1).detach()
+    v_x_drop = v_x.masked_fill(mask, 0)
+    return v_x_drop, mask
+
 #-----------------------------------------------------------------------
 from util.meter import SegmentationMeter
+
 def evaluation(epoch, do_G=False, subset='train'):
     net['X2Z'].eval()
     net['Z2Y'].eval()
@@ -236,18 +242,23 @@ def evaluation(epoch, do_G=False, subset='train'):
         eval_stats.update_confmat(gt, pred)
 
         if do_G:
-            x_hat, A_L1 = X_step(z_hat, y_hat, v_x)
-            x_tilde, P_L1 = X_step(z_hat, log_y, v_x)
+            v_x_drop, mask = mask_drop(v_x)
+            x_hat, A_L1 = X_step(z_hat, v_x_drop, v_x)
+            #x_tilde, P_L1 = X_step(z_hat, log_y, v_x)
             E_loss[1].append( A_L1.data[0] )
-            E_loss[2].append( P_L1.data[0] )
+            #E_loss[2].append( P_L1.data[0] )
+            E_loss[2].append( A_L1.data[0] )
 
         # visualization
-        if i % 10 == 0:
-            images = {'TEST_x':v_x.data.cpu(),
-                      'TEST_y':v_y_int.data.cpu().numpy(), 'TEST_y_hat':y_hat.data.cpu().numpy().argmax(1)}
+        if i % 200 == 0:
+            images = {'T_x':v_x.data.cpu(),
+                      'T_y':v_y_int.data.cpu().numpy(), 'T_y_hat':y_hat.data.cpu().numpy().argmax(1),
+                      'T_z_hat':z_hat.data.cpu().numpy().argmax(1)}
             if do_G:
-                images['TEST_x_hat']   = x_hat.data.cpu()
-                images['TEST_x_tilde'] = x_tilde.data.cpu()
+                images['T_x_drop'] = v_x_drop.data.cpu()
+                images['T_mask']   = mask.data.cpu().numpy().squeeze(1)
+                images['T_x_hat']  = x_hat.data.cpu()
+                #images['T_x_tilde'] = x_tilde.data.cpu()
             display_imgs(images, epoch, i, subset=subset, do_save=2)
 
     print('EVAL at epoch %d ==> CE = %.3f, A_L1 = %.3f, P_L1 = %.3f' % \
@@ -279,7 +290,9 @@ def display_imgs(images, epoch, i, subset='train', do_save=0):
 
     for k, im in images.items():
         if 'y' in k:
-            images[k] = tensor2lab(im, val_loader.dataset.label2color) # 3HW
+            images[k] = tensor2lab(im, label2color=val_loader.dataset.label2color) # 3HW
+        elif 'z' in k:
+            images[k] = tensor2lab(im, n_labs=opt.z_nc) # 3HW
         elif 'x' in k:
             images[k] = im[0] # 3HW
             d_mean = torch.FloatTensor(val_loader.dataset.mean).view(-1,1,1) # (3) -> (3,1,1)
@@ -287,14 +300,16 @@ def display_imgs(images, epoch, i, subset='train', do_save=0):
             images[k] *= d_std
             images[k] += d_mean
             images[k] = images[k].mul(255).clamp(0,255).byte().numpy() # 3HW
+        elif 'mask' in k:
+            images[k] = tensor2lab(im, n_labs=2) # 3HW
     visualizer.display_current_results(images, epoch, i, subset=subset, do_save=do_save)
 
 #########################################################################
-mIoU = evaluation(0)
-
-# main loop
+mIoU = evaluation(0, do_G=True)
 stats = {'D':0, 'G':0, 'P_CE':0, 'A_CE':0, 'P_L1':0, 'A_L1':0}
 g_it = 0
+
+# main loop
 for epoch in range(opt.start_epoch, opt.niter):
     # on begin epoch
     adjust_lr(epoch)
@@ -302,12 +317,10 @@ for epoch in range(opt.start_epoch, opt.niter):
 
     for i in range(len(x_loader)):
         tt0 = time.time()
-
         if g_it < 25 or g_it % 500 == 0:
             D_ITERS, G_ITERS = 20, 1 # 100, 1
         else:
             D_ITERS, G_ITERS = 2, 1 # 5, 1
-
         if opt.updates['D'] != 2:
             D_ITERS = 0
 
@@ -318,21 +331,17 @@ for epoch in range(opt.start_epoch, opt.niter):
         for d_i in range(D_ITERS):
             v_x = generate_var_x()
             d_loss = D_step(v_x)
-
-            #stats['E_q_D'] = E_q_D.data[0]
-            #stats['E_p_D'] = E_p_D.data[0]
             stats['D'] = -d_loss.data[0]
 
         # -------------------------------------------------------------------
         #        Optimize over FX2Z, HZ2Y, GZY2X
         # -------------------------------------------------------------------
         for g_i in range(G_ITERS):
+            tt1 = time.time()
             images = {}
 
-            tt1 = time.time()
             # -------------------------------------------------------------------
             # paired X, Y
-
             g_losses = []
             v_x, v_y_int, log_y = generate_var_xy()
 
@@ -348,7 +357,8 @@ for epoch in range(opt.start_epoch, opt.niter):
 
             # log p(x | y)
             if opt.updates['ZY2X'] == 2:
-                x_tilde, P_L1 = X_step(z_hat, log_y, v_x)
+                v_x_drop,_ = mask_drop(v_x)
+                x_tilde, P_L1 = X_step(z_hat, v_x_drop, v_x)
                 g_losses.append( lambda_x * P_L1 ) # L1
                 stats['P_L1'] = P_L1.data[0]
 
@@ -356,7 +366,6 @@ for epoch in range(opt.start_epoch, opt.niter):
                 images['xP_tilde'] = x_tilde.data.cpu()
 
             update_FHG(g_losses)
-
 
             tt2 = time.time()
             # -------------------------------------------------------------------
@@ -367,9 +376,10 @@ for epoch in range(opt.start_epoch, opt.niter):
             if opt.updates['ZY2X'] > 0 and opt.updates['X2Z'] > 0:
                 g_losses = []
                 v_x = generate_var_x()
+                v_x_drop,_ = mask_drop(v_x)
 
                 z_hat, y_hat, A_CE = Y_step(v_x, None)
-                x_hat, A_L1 = X_step(z_hat, y_hat, v_x)
+                x_hat, A_L1 = X_step(z_hat, v_x_drop, v_x)
 
                 g_losses.append( lambda_x * A_L1 ) # L1
                 stats['A_L1'] = A_L1.data[0]
@@ -379,16 +389,12 @@ for epoch in range(opt.start_epoch, opt.niter):
                     E_p_G = net['D']( v_x ).mean()
                     g_loss = (E_q_G - E_p_G).pow(2)
                     g_losses.append( lambda_x * g_loss )
-
-                    ##stats['E_q_G'] = E_q_G.data[0]
-                    ##stats['E_p_G'] = E_p_G.data[0]
                     stats['G'] = g_loss.data[0]
 
                 update_FHG(g_losses)
 
                 # visdom
                 images['x'] = v_x.data.cpu()
-                #images['y'] = v_y_int.data.cpu().numpy()
                 images['y_hat'] = y_hat.data.cpu().numpy().argmax(1)
                 images['x_hat'] = x_hat.data.cpu()
 
@@ -397,33 +403,30 @@ for epoch in range(opt.start_epoch, opt.niter):
 
         # -------------------------------------------------------------------
         # print & plot
-        print('[{epoch}/{nepoch}][{iter}/{niter}] in {t:.3f}s ({t01:.3f},{t12:.3f},{t23:.3f}) '
-              'D/G: {D:.3f}/{G:.3f} '
-              'P_CE/A_CE: {P_CE:.3f}/{A_CE:.3f} '
-              'P_L1/A_L1: {P_L1:.3f}/{A_L1:.3f} '
-              ''.format(epoch=epoch,
-                        nepoch=opt.niter,
-                        iter=i,
-                        niter=len(x_loader),
-                        t=tt3-tt0, t01=tt1-tt0, t12=tt2-tt1, t23=tt3-tt2,
-                        **stats))
-
-        if i % 50 == 0:
+        if i % (len(x_loader)/3) == 0:
+            print('[{epoch}/{nepoch}][{iter}/{niter}] in {t:.3f}s ({t01:.3f},{t12:.3f},{t23:.3f}) '
+                  'D/G: {D:.3f}/{G:.3f} '
+                  'P_CE/A_CE: {P_CE:.3f}/{A_CE:.3f} '
+                  'P_L1/A_L1: {P_L1:.3f}/{A_L1:.3f} '
+                  ''.format(epoch=epoch, nepoch=opt.niter,
+                            iter=i, niter=len(x_loader),
+                            t=tt3-tt0, t01=tt1-tt0, t12=tt2-tt1, t23=tt3-tt2,
+                            **stats))
             display_imgs(images, epoch, i)
-
 
     # -------------------------------------------------------------------
     # on end epoch
     print('===> End of epoch %d / %d \t Time Taken: %.2f sec\n' % \
-                (epoch, opt.niter, time.time() - epoch_start_time))
+            (epoch, opt.niter, time.time() - epoch_start_time))
 
     # evaluation & save (best only)
     if epoch % opt.save_every == 0:
         visualizer.save_webpage(prefix='train') # visualizer maintains a img_dict to be saved in webpage
-        temp_mIoU = evaluation(epoch)
+        temp_mIoU = evaluation(epoch, do_G=True) # figures are saved in train folder
         if temp_mIoU >= mIoU:
             mIoU = temp_mIoU
             for k in net.keys():
                 if opt.updates[k] == 2:
                     weights_fpath = os.path.join(opt.checkpoints_dir, opt.name, 'net%s.pth' % (k))
                     torch.save(net[k].state_dict(), weights_fpath)
+
