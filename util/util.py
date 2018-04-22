@@ -103,3 +103,15 @@ def var(x, dim=0):
     return x_zero_meaned.pow(2).mean(dim)
 
 
+def partial_sum(v, keep_dims=[]):
+    """Sums variable or tensor along all dimensions except those specified
+    in `keep_dims`"""
+    if len(keep_dims) == 0:
+        return v.sum()
+    else:
+        keep_dims = sorted(keep_dims)
+        drop_dims = list(set(range(v.dim())) - set(keep_dims))
+        result = v.permute(*(keep_dims + drop_dims))
+        size = result.size()[:len(keep_dims)] + (-1,)
+        return result.contiguous().view(size).sum(-1)
+

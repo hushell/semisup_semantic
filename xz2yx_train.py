@@ -67,7 +67,7 @@ visualizer = Visualizer(opt)
 
 net =dict()
 net['X2Z'] = FX2Z(opt)
-net['Z2Y'] = FZ2Y(opt)
+net['Z2Y'] = FZ2Y(opt, n_blocks=2)
 net['ZY2X'] = GZ2X(opt) # TODO: ZY2X to Z2X
 net['D'] = NLayerDiscriminator(opt)
 
@@ -211,9 +211,18 @@ def D_step(v_x):
 
 from torch.nn.functional import dropout
 def mask_drop(v_x):
-    v_x0 = dropout(v_x[:,0,:,:], p=opt.x_drop, training=True)
-    mask = v_x0.le(0).unsqueeze_(1).detach()
-    v_x_drop = v_x.masked_fill(mask, 0)
+    #v_x0 = dropout(v_x[:,0,:,:], p=opt.x_drop, training=True)
+    #mask = v_x0.le(0).unsqueeze_(1).detach()
+    #v_x_drop = v_x.masked_fill(mask, 0)
+
+    xrand = Variable(torch.rand(v_x.size(0), 1, v_x.size(2) * v_x.size(3)))
+    xrand = xrand.cuda() if v_x.is_cuda else xrand
+    _, indices = xrand.topk(k=int((1-opt.x_drop) * v_x.size(2) * v_x.size(3)), dim=2)
+    mask = Variable(torch.zeros(xrand.size()))
+    mask = mask.cuda() if v_x.is_cuda else mask
+    mask.scatter_(2, indices, 1.0)
+    mask = mask.view(v_x.size(0), 1, v_x.size(2), v_x.size(3))
+    v_x_drop = v_x.mul(mask)
     return v_x_drop, mask
 
 #-----------------------------------------------------------------------
@@ -256,8 +265,8 @@ def evaluation(epoch, do_G=False, subset='train'):
                       'T_z_hat':z_hat.data.cpu().numpy().argmax(1)}
             if do_G:
                 images['T_x_drop'] = v_x_drop.data.cpu()
-                images['T_mask']   = mask.data.cpu().numpy().squeeze(1)
                 images['T_x_hat']  = x_hat.data.cpu()
+                #images['T_mask']   = mask.data.cpu().numpy().squeeze(1)
                 #images['T_x_tilde'] = x_tilde.data.cpu()
             display_imgs(images, epoch, i, subset=subset, do_save=2)
 
@@ -290,7 +299,7 @@ def display_imgs(images, epoch, i, subset='train', do_save=0):
 
     for k, im in images.items():
         if 'y' in k:
-            images[k] = tensor2lab(im, label2color=val_loader.dataset.label2color) # 3HW
+            images[k] = tensor2lab(im, n_labs=opt.output_nc) # 3HW
         elif 'z' in k:
             images[k] = tensor2lab(im, n_labs=opt.z_nc) # 3HW
         elif 'x' in k:

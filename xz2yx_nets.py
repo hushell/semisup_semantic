@@ -208,10 +208,13 @@ class FX2Z(nn.Module):
         # upsampling blocks: ngf*4 -> ngf
         for i in range(n_downsampling):
             mult = 2**(n_downsampling - i)
-            model += [nn.ConvTranspose2d(ngf * mult, int(ngf * mult / 2),
-                                         kernel_size=3, stride=2,
-                                         padding=1, output_padding=1,
-                                         bias=use_bias),
+            #model += [nn.ConvTranspose2d(ngf * mult, int(ngf * mult / 2),
+            #                             kernel_size=3, stride=2,
+            #                             padding=1, output_padding=1,
+            #                             bias=use_bias),
+            model += [nn.Conv2d(ngf * mult, int(ngf * mult / 2) * 4,
+                                kernel_size=3, stride=1, padding=1, bias=use_bias),
+                      nn.PixelShuffle(2),
                       norm_layer(int(ngf * mult / 2)),
                       nn.ReLU(True)]
 
@@ -230,18 +233,33 @@ class FX2Z(nn.Module):
 
 # net Z -> Y
 class FZ2Y(nn.Module):
-    def __init__(self, opt):
+    def __init__(self, opt, n_blocks=0):
         super(FZ2Y, self).__init__()
         self.gpu_ids = opt.gpu_ids
         z_nc = opt.z_nc
         output_nc = opt.output_nc
+        norm_layer=nn.BatchNorm2d # TODO: try instanceNorm
+        use_bias = norm_layer == nn.InstanceNorm2d
+        use_dropout = opt.use_dropout
+        padding_type='reflect'
+
+        # resnet blocks
+        model = []
+        for i in range(n_blocks):
+            model += [ResnetBlock(z_nc, padding_type=padding_type, norm_layer=norm_layer, use_dropout=use_dropout, use_bias=use_bias)]
 
         # z_nc -> y_nc by 1x1 conv
-        model = []
-        model += [nn.Conv2d(z_nc, output_nc, kernel_size=1, stride=1, padding=0)]
+        model += [nn.ReflectionPad2d(1),
+                  nn.Conv2d(z_nc, output_nc, kernel_size=3, stride=1, padding=0)
+                 ]
         model += [nn.LogSoftmax(dim=1)]
 
-        self.model = nn.Sequential(*model)
+        self.z2y = nn.Sequential(*model)
+
+        def _forward(z_hat):
+            exp_z = torch.exp(z_hat)
+            return self.z2y(exp_z)
+        self.model = _forward
 
     def forward(self, input):
         if self.gpu_ids and isinstance(input.data, torch.cuda.FloatTensor):
