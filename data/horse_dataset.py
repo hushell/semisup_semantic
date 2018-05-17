@@ -8,6 +8,7 @@ import numpy as np
 import scipy.misc as m
 import util
 import cv2
+from random import random
 
 
 class HorseDataset(data.Dataset):
@@ -30,9 +31,13 @@ class HorseDataset(data.Dataset):
         # unsup flag
         self.unsup = np.zeros(len(self.files), dtype=np.int32)
         if opt.isTrain and opt.unsup_portion > 0:
-            assert(opt.unsup_portion < opt.portion_total) # e.g., unsup_portion=0: no unsup; unsup_portion=portion_total=10: all unsup
-            tmp = np.concatenate([np.arange(i,len(self.files),opt.portion_total) for i in range(opt.unsup_portion)])
-            self.unsup[tmp] = 1
+            if hasattr(opt, 'portion_total'):
+                assert(opt.unsup_portion < opt.portion_total) # e.g., unsup_portion=0: no unsup; unsup_portion=portion_total=10: all unsup
+                tmp = np.concatenate([np.arange(i,len(self.files),opt.portion_total) for i in range(opt.unsup_portion)])
+                self.unsup[tmp] = 1
+            else:
+                for i in range(len(self.files)):
+                    self.unsup[i] = random() < opt.unsup_portion
             print('==> unsupervised portion = %.3f' % (float(sum(self.unsup)) / len(self.files)))
 
         # transforms
