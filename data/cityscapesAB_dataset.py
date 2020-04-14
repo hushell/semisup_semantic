@@ -32,12 +32,16 @@ class CityscapesABDataset(data.Dataset):
         self.A_paths = sorted(self.A_paths)
         self.B_paths = sorted(self.B_paths)
 
-        self.unsup = np.zeros(self.__len__(), dtype=np.int32)
-        if opt.isTrain and opt.unsup_portion > 0:
-            assert(opt.unsup_portion <= opt.portion_total) # e.g., unsup_portion=0: no unsup; unsup_portion=portion_total=10: all unsup
-            tmp = np.concatenate([np.arange(i,self.__len__(),opt.portion_total) for i in range(opt.unsup_portion)])
-            self.unsup[tmp] = 1
-            print('==> unsupervised portion = %.3f' % (float(sum(self.unsup)) / self.__len__()))
+        # sup indices
+        totNum = len(self.files)
+        if (opt.sup_portion >= 0 and opt.sup_portion <= 1):
+            self.sup_indices = np.random.randint(0, totNum, int(opt.sup_portion * totNum))
+        else:
+            # sup_portion = 0, 1, ..., 10
+            self.sup_indices = np.concatenate([np.arange(i,len(self.files),10)
+                                               for i in range(opt.sup_portion)])
+
+        print('==> supervised portion = %.3f' % (float(len(self.sup_indices)) / len(self.files)))
 
         # transforms
         transform_list = []
@@ -59,14 +63,15 @@ class CityscapesABDataset(data.Dataset):
             interp_img = cv2.INTER_LINEAR
             interp_target = cv2.INTER_NEAREST
 
-            if 'resize' in opt.resize_or_crop:
-                target_scale = float(opt.targetSize) / float(max(opt.widthSize, opt.heightSize))
-                transform_list.append(util.Scale(target_scale, interp_img, interp_target))
+            #if 'scale' in opt.transforms:
+            #    target_scale = float(opt.targetSize) / float(max(opt.widthSize, opt.heightSize))
+            #    transform_list.append(util.Scale(target_scale, interp_img, interp_target))
 
-            if 'crop' in opt.resize_or_crop:
-                transform_list.append(util.RandomCrop(crop_width=opt.widthSize, crop_height=opt.heightSize))
+            if 'crop' in opt.transforms:
+                transform_list.append(util.RandomCrop(crop_width=self.widthSize,
+                                                      crop_height=self.heightSize))
 
-            if not opt.no_flip:
+            if 'flip' in opt.transforms:
                 transform_list.append(util.RandomFlip())
 
         transform_list.append(util.ImgTargetTransform(img_transform=transform_img, target_transform=transform_target))
@@ -97,7 +102,7 @@ class CityscapesABDataset(data.Dataset):
 
         A_img, B_img = self.transform_fun((A_img, B_img))
 
-        return {'A': A_img, 'B': B_img, 'unsup': self.unsup[index],
+        return {'A': A_img, 'B': B_img, 'issup': index in self.sup_indices,
                 'A_paths': A_path, 'B_paths': B_path}
 
     def __len__(self):
