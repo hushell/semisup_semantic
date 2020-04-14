@@ -14,7 +14,7 @@ from random import random
 class HorseDataset(data.Dataset):
     def __init__(self, root, opt):
         self.root = root
-        self.split = opt.phase
+        self.split = 'train' if opt.isTrain else 'test'
         self.heightSize = 32
         self.widthSize = 32
         self.n_classes = 2
@@ -25,20 +25,20 @@ class HorseDataset(data.Dataset):
         self.std = [1.0, 1.0, 1.0]
 
         # samples
+        # TODO: other selected train images
         self.files = os.listdir(root + '/A/')
-        self.files = self.files[0:200] if self.split is 'train' else self.files[200:-1] # TODO: other selected train images
+        self.files = self.files[0:200] if self.split is 'train' else self.files[200:-1]
 
-        # unsup flag
-        self.unsup = np.zeros(len(self.files), dtype=np.int32)
-        if opt.isTrain and opt.unsup_portion > 0:
-            if hasattr(opt, 'portion_total'):
-                assert(opt.unsup_portion < opt.portion_total) # e.g., unsup_portion=0: no unsup; unsup_portion=portion_total=10: all unsup
-                tmp = np.concatenate([np.arange(i,len(self.files),opt.portion_total) for i in range(opt.unsup_portion)])
-                self.unsup[tmp] = 1
-            else:
-                for i in range(len(self.files)):
-                    self.unsup[i] = random() < opt.unsup_portion
-            print('==> unsupervised portion = %.3f' % (float(sum(self.unsup)) / len(self.files)))
+        # sup indices
+        totNum = len(self.files)
+        if (opt.sup_portion >= 0 and opt.sup_portion <= 1):
+            self.sup_indices = np.random.randint(0, totNum, int(opt.sup_portion * totNum))
+        else:
+            # sup_portion = 0, 1, ..., 10
+            self.sup_indices = np.concatenate([np.arange(i,len(self.files),10)
+                                               for i in range(opt.sup_portion)])
+
+        print('==> supervised portion = %.3f' % (float(len(self.sup_indices)) / len(self.files)))
 
         # transforms
         transform_list = []
@@ -59,17 +59,19 @@ class HorseDataset(data.Dataset):
             interp_img = cv2.INTER_LINEAR
             interp_target = cv2.INTER_NEAREST
 
-            if 'resize' in opt.resize_or_crop:
-                target_scale = float(opt.targetSize) / float(max(opt.widthSize, opt.heightSize))
-                transform_list.append(util.Scale(target_scale, interp_img, interp_target))
+            #if 'scale' in opt.transforms:
+            #    target_scale = float(opt.targetSize) / float(max(opt.widthSize, opt.heightSize))
+            #    transform_list.append(util.Scale(target_scale, interp_img, interp_target))
 
-            if 'crop' in opt.resize_or_crop:
-                transform_list.append(util.RandomCrop(crop_width=opt.widthSize, crop_height=opt.heightSize))
+            if 'crop' in opt.transforms:
+                transform_list.append(util.RandomCrop(crop_width=self.widthSize,
+                                                      crop_height=self.heightSize))
 
-            if not opt.no_flip:
+            if 'flip' in opt.transforms:
                 transform_list.append(util.RandomFlip())
 
-        transform_list.append(util.ImgTargetTransform(img_transform=transform_img, target_transform=transform_target))
+        transform_list.append(util.ImgTargetTransform(img_transform=transform_img,
+                                                      target_transform=transform_target))
         self.transform_fun = tnt.transform.compose(transform_list)
 
         # visualization
@@ -98,6 +100,6 @@ class HorseDataset(data.Dataset):
         #img, lbl = self.transform(img, lbl)
         img, lbl = self.transform_fun((img, lbl))
 
-        return {'A': img, 'B': lbl, 'unsup': self.unsup[index],
+        return {'A': img, 'B': lbl, 'issup': index in self.sup_indices,
                 'A_paths': img_path, 'B_paths': lbl_path}
 

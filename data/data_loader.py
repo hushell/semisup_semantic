@@ -1,45 +1,11 @@
 import torch.utils.data
-from torch.utils.data.sampler import Sampler, RandomSampler, SequentialSampler
+from torch.utils.data.sampler import SubsetRandomSampler, RandomSampler, SequentialSampler
 import numpy as np
 
 def CreateDataLoader(opt):
     data_loader = CustomDatasetDataLoader(opt)
     return data_loader
 
-class SemiSupRandomSampler(Sampler):
-    def __init__(self, unsup, batchSize):
-        self.unsup = unsup # int ndarray only {0,1}
-        self.batchSize = batchSize
-
-    def __iter__(self):
-        unsup_indices = np.random.permutation( np.where(self.unsup)[0] ) # indices from bool
-        sup_indices = np.random.permutation( np.where(1 - self.unsup)[0] )
-
-        self.len_unsup = len(unsup_indices) - len(unsup_indices) % self.batchSize # mod by batchSize
-        self.len_sup = len(sup_indices) - len(sup_indices) % self.batchSize
-        unsup_indices = unsup_indices[0:self.len_unsup].reshape((-1,self.batchSize))
-        sup_indices = sup_indices[0:self.len_sup].reshape((-1,self.batchSize))
-
-        indices = np.vstack((unsup_indices, sup_indices)) # matrix: each row contains indices of a batch
-        np.random.shuffle(indices) # in place shuffle along axis-0
-        return iter(indices.ravel().astype(np.int32))
-
-    def __len__(self):
-        return self.len_sup + self.len_unsup
-
-class RepeatRandomSampler(Sampler):
-    def __init__(self, subset, fulllen):
-        self.subset = torch.from_numpy(subset)
-        self.fulllen = fulllen
-
-    def __iter__(self):
-        n_sub = len(self.subset)
-        n_repeats = self.fulllen // n_sub + 1
-        rep_subset = torch.cat([self.subset[torch.randperm(n_sub)] for _ in range(n_repeats)]).long()
-        return iter(rep_subset[0:self.fulllen])
-
-    def __len__(self):
-        return self.fulllen
 
 class CustomDatasetDataLoader(object):
     def __init__(self, opt):
@@ -48,36 +14,27 @@ class CustomDatasetDataLoader(object):
         self.batchSize = batchSize
 
         if opt.isTrain:
-            if 'unif' in opt.unsup_sampler: # unif, unif_ignore
-                my_sampler = SemiSupRandomSampler(self.dataset.unsup, batchSize)
-            elif opt.unsup_sampler == 'sep':
-                my_sampler = RandomSampler(self.dataset)
-                sup_indices = np.where(1 - self.dataset.unsup)[0]
-                my_sampler_sup = RepeatRandomSampler(sup_indices, len(self.dataset))
-                self.dataloader_sup = torch.utils.data.DataLoader(
-                    self.dataset,
-                    batch_size=batchSize,
-                    sampler = my_sampler_sup,
-                    num_workers=int(opt.nThreads),
-                    drop_last=True)
-            else:
-                raise ValueError("unsup_sampler [%s] not recognized." % opt.unsup_sampler)
+            my_sampler = SubsetRandomSampler(self.dataset.sup_indices)
+            self.dataloader_sup = torch.utils.data.DataLoader(
+                self.dataset,
+                batch_size=batchSize,
+                sampler = my_sampler,
+                num_workers=int(opt.nThreads),
+                drop_last=False)
         else:
             my_sampler = SequentialSampler(self.dataset)
 
         self.dataloader = torch.utils.data.DataLoader(
             self.dataset,
             batch_size=batchSize,
-            #shuffle=True,
-            sampler = my_sampler,
+            shuffle=True,
             num_workers=int(opt.nThreads),
-            drop_last=True if opt.isTrain else False)
+            drop_last=False)
 
     def __iter__(self):
         return self.dataloader.__iter__()
 
     def __len__(self):
-        #return len(self.dataset) // self.batchSize
         return self.dataloader.__len__()
 
     def iter_all(self):
@@ -100,32 +57,6 @@ class CustomDatasetDataLoader(object):
         #    opt.widthSize = self.dataset.widthSize
         return opt
 
-class XYDataLoader(object):
-    def __init__(self, opt, is_paired):
-        self.dataset = CreateDataset(opt)
-
-        assert(opt.isTrain == True and opt.unsup_sampler == 'sep')
-
-        if is_paired:
-            sup_indices = np.where(1 - self.dataset.unsup)[0]
-            my_sampler = RepeatRandomSampler(sup_indices, len(self.dataset))
-        else:
-            my_sampler = RandomSampler(self.dataset)
-
-        self.dataloader = torch.utils.data.DataLoader(
-            self.dataset,
-            batch_size=opt.batchSize,
-            sampler = my_sampler,
-            num_workers=int(opt.nThreads),
-            drop_last=True)
-        self.batchSize = opt.batchSize
-
-    def __iter__(self):
-        return self.dataloader.__iter__()
-
-    def __len__(self):
-        #return len(self.dataset) // self.batchSize
-        return self.dataloader.__len__()
 
 def CreateDataset(opt):
     dataset = None
@@ -148,6 +79,7 @@ def CreateDataset(opt):
     print("===> dataset [%s] was created" % (dataset.name()))
     return dataset
 
+
 def get_data_path(name, config_file='config.json'):
     """get_data_path
 
@@ -157,6 +89,7 @@ def get_data_path(name, config_file='config.json'):
     import json
     data = json.load(open('data/config.json'))
     return data[name]['data_path']
+
 
 class InfiniteDataLoader(object):
     """Allow to load sample infinitely"""
@@ -179,4 +112,3 @@ class InfiniteDataLoader(object):
 
     def __len__(self):
         return len(self.dataloader)
-
