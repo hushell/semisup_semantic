@@ -18,7 +18,7 @@ parser.add_argument('--lr_decay_iters', type=int, default=50, help='multiply by 
 ################################
 parser.add_argument('--dataset', type=str, default='cityscapesAB', help='chooses which dataset is loaded. [cityscapesAB | pascal | camvid]')
 parser.add_argument('--ignore_index', type=int, default=-100, help='mask this class without contributing to nll_loss')
-parser.add_argument('--unsup_portion', type=int, default=9, help='portion of unsupervised, range=0,...,10')
+parser.add_argument('--sup_portion', type=int, default=9, help='portion of unsupervised, range=0,...,10')
 parser.add_argument('--transforms', type=str, default='flip', help='crop, flip, resize')
 
 ################################

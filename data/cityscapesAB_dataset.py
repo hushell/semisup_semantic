@@ -15,8 +15,10 @@ class CityscapesABDataset(data.Dataset):
     def __init__(self, dataroot, opt):
         self.opt = opt
         self.root = dataroot
-        self.dir_A = os.path.join(dataroot, opt.phase + 'A')
-        self.dir_B = os.path.join(dataroot, opt.phase + 'B')
+
+        phase = 'train' if opt.isTrain else 'val'
+        self.dir_A = os.path.join(dataroot, phase + 'A')
+        self.dir_B = os.path.join(dataroot, phase + 'B')
 
         self.heightSize = 256
         self.widthSize = 256
@@ -33,15 +35,15 @@ class CityscapesABDataset(data.Dataset):
         self.B_paths = sorted(self.B_paths)
 
         # sup indices
-        totNum = len(self.files)
+        totNum = self.__len__()
         if (opt.sup_portion >= 0 and opt.sup_portion <= 1):
             self.sup_indices = np.random.randint(0, totNum, int(opt.sup_portion * totNum))
         else:
             # sup_portion = 0, 1, ..., 10
-            self.sup_indices = np.concatenate([np.arange(i,len(self.files),10)
+            self.sup_indices = np.concatenate([np.arange(i, totNum, 10)
                                                for i in range(opt.sup_portion)])
 
-        print('==> supervised portion = %.3f' % (float(len(self.sup_indices)) / len(self.files)))
+        print('==> supervised portion = %.3f' % (float(len(self.sup_indices)) / totNum))
 
         # transforms
         transform_list = []
