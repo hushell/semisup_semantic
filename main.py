@@ -1,4 +1,5 @@
 import time
+import datetime
 import os
 import torch
 import numpy as np
@@ -16,8 +17,9 @@ from models.semantic_inductive_bias import SemanticInductiveBias
 #########################################################################
 # options
 opt = parser.parse_args()
-opt.name += '_%s/%d' % (opt.dataset, opt.manual_seed)
 device = torch.device('cuda:%d' % opt.gpu)
+if not os.path.exists(opt.out_dir):
+    os.makedirs(opt.out_dir)
 
 # data_loaders
 val_loader = CustomDatasetDataLoader(opt, istrain=False)
@@ -174,7 +176,7 @@ for epoch in range(opt.epochs):
             'epoch': epoch,
             'opt': opt
         },
-        os.path.join(opt.output_dir, 'model_{}.pth'.format(opt.name)))
+        os.path.join(opt.out_dir, 'model_LAST.pth'))
 
 total_time = time.time() - start_time
 total_time_str = str(datetime.timedelta(seconds=int(total_time)))
