@@ -73,6 +73,9 @@ def CreateDataset(opt):
     elif opt.dataset == 'horse':
         from .horse_dataset import HorseDataset
         dataset = HorseDataset(data_path, opt)
+    elif opt.dataset == 'm2nist':
+        from .m2nist_dataset import M2NISTDataset
+        dataset = M2NISTDataset(data_path, opt)
     else:
         raise ValueError("Dataset [%s] not recognized." % opt.dataset)
 

@@ -28,5 +28,9 @@
   "horse":
   {
     "data_path": "./datasets/horse_32x32/"
+  },
+  "m2nist":
+  {
+    "data_path": "./datasets/m2nist/"
   }
 }

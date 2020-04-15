@@ -4,13 +4,13 @@ import numpy as np
 import torch.utils.data as data
 from PIL import Image
 
-class M2NIST(data.Dataset):
+class M2NISTDataset(data.Dataset):
     heightSize = 64
     widthSize = 64
     n_classes = 11
 
     def __init__(self, root, opt):
-        super(M2NIST, self).__init__()
+        super(M2NISTDataset, self).__init__()
 
         image_set = 'train' if opt.isTrain else 'test'
         path = os.path.join(root, image_set)
@@ -32,7 +32,7 @@ class M2NIST(data.Dataset):
         self.X, self.y = X, y
 
         # sup indices
-        totNum = len(self.__len__())
+        totNum = self.__len__()
         if (opt.sup_portion >= 0 and opt.sup_portion <= 1):
             while True:
                 self.sup_indices = np.random.randint(0, totNum, int(opt.sup_portion * totNum))
@@ -41,10 +41,10 @@ class M2NIST(data.Dataset):
                     break
         else:
             # sup_portion = 0, 1, ..., 10
-            self.sup_indices = np.concatenate([np.arange(i,len(self.__len__()),10)
+            self.sup_indices = np.concatenate([np.arange(i,totNum,10)
                                                for i in range(opt.sup_portion)])
 
-        print('==> supervised portion = %.3f' % (float(len(self.sup_indices)) / len(self.__len__())))
+        print('==> supervised portion = %.3f' % (float(len(self.sup_indices)) / totNum))
 
         # visualization
         self.label2color = np.array([(128, 0, 0),
@@ -84,17 +84,21 @@ class M2NIST(data.Dataset):
         #if self.transform is not None:
         #    img = self.transform(img)
 
-        target = torch.cat([target, torch.zeros(target.shape[0], target.shape[1], 1)], -1)
+        #target = torch.cat([target, torch.zeros(target.shape[0], target.shape[1], 1)], -1)
+        #target = target.argmax(axis=-1)
+        target = np.concatenate((target, np.ones((target.shape[0], target.shape[1], 1))), axis=-1)
         target = target.argmax(axis=-1)
 
         #if self.target_transform is not None:
         #    target = self.target_transform(target)
 
-
         return {'A': img, 'B': target, 'issup': True if index in self.sup_indices else False}
 
     def __len__(self):
         return len(self.y)
+
+    def name(self):
+        return 'M2NISTDataset'
 
     def get_next_batch(self, batch_size):
         for start in range(0,len(self.y),batch_size):
