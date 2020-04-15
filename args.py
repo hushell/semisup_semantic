@@ -25,8 +25,9 @@ parser.add_argument('--transforms', type=str, default='flip', help='crop, flip, 
 # train settings
 ################################
 parser.add_argument('--name', type=str, default='xyx', help='name of the experiment. It decides where to store samples and models')
-parser.add_argument('--checkpoints_dir', default='ckpt', help='folder to output images and model checkpoints')
-parser.add_argument('--save_every', default=2, type=int, help='')
+parser.add_argument('--epochs', default=200, type=int, help='number of epochs')
+parser.add_argument('--print-freq', default=10, type=int, help='print frequency')
+parser.add_argument('--output-dir', default='./outputs', help='path where to save')
 parser.add_argument('--manual_seed', type=int, default=123, help='manual seed')
 parser.add_argument('--start_epoch', type=int, default=0, help='epoch number to start with')
 parser.add_argument('--nThreads', default=4, type=int, help='# threads for loading data')

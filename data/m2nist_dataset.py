@@ -8,6 +8,8 @@ class M2NISTDataset(data.Dataset):
     heightSize = 64
     widthSize = 64
     n_classes = 11
+    mean = [0.5028, 0.4901, 0.4158]
+    std = [1.0, 1.0, 1.0]
 
     def __init__(self, root, opt):
         super(M2NISTDataset, self).__init__()

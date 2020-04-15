@@ -6,7 +6,6 @@ Created on Mon Mar 20 12:12:44 2017
 """
 import torch
 import torch.nn as nn
-#import torch.nn.parallel
 import torchvision
 import torchvision.models
 import numpy as np

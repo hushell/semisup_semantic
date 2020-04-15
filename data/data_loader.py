@@ -2,32 +2,26 @@ import torch.utils.data
 from torch.utils.data.sampler import SubsetRandomSampler, RandomSampler, SequentialSampler
 import numpy as np
 
-def CreateDataLoader(opt):
-    data_loader = CustomDatasetDataLoader(opt)
-    return data_loader
-
 
 class CustomDatasetDataLoader(object):
-    def __init__(self, opt):
+    def __init__(self, opt, istrain=False, issup=False):
         self.dataset = CreateDataset(opt)
-        batchSize = opt.batchSize if opt.isTrain else 1
+        batchSize = opt.batchSize if istrain else 1
         self.batchSize = batchSize
 
-        if opt.isTrain:
-            my_sampler = SubsetRandomSampler(self.dataset.sup_indices)
-            self.dataloader_sup = torch.utils.data.DataLoader(
-                self.dataset,
-                batch_size=batchSize,
-                sampler = my_sampler,
-                num_workers=int(opt.nThreads),
-                drop_last=False)
+        if istrain:
+            if issup:
+                my_sampler = SubsetRandomSampler(self.dataset.sup_indices)
+            else:
+                my_sampler = None
         else:
             my_sampler = SequentialSampler(self.dataset)
 
-        self.dataloader = torch.utils.data.DataLoader(
+        self.dataloader_sup = torch.utils.data.DataLoader(
             self.dataset,
             batch_size=batchSize,
-            shuffle=True,
+            shuffle=not issup,
+            sampler=my_sampler,
             num_workers=int(opt.nThreads),
             drop_last=False)
 
@@ -36,12 +30,6 @@ class CustomDatasetDataLoader(object):
 
     def __len__(self):
         return self.dataloader.__len__()
-
-    def iter_all(self):
-        return self.dataloader.__iter__()
-
-    def iter_sup(self):
-        return self.dataloader_sup.__iter__()
 
     def name(self):
         return 'CustomDatasetDataLoader'

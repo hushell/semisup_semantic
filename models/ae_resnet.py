@@ -1,21 +1,19 @@
 import torch
 import torch.nn as nn
-from torch.autograd import Variable
 import numpy as np
 
 # Defines the generator that consists of Resnet blocks between a few
 # downsampling/upsampling operations.
 # Code and idea originally from Justin Johnson's architecture.
 # https://github.com/jcjohnson/fast-neural-style/
-class StyleTransformResNet(nn.Module):
-    def __init__(self, input_nc, output_nc, ngf=64, norm_layer=nn.BatchNorm2d, use_dropout=False, n_blocks=6,
-                 gpu_ids=[], last_layer='softmax'):
+class AEResNet(nn.Module):
+    def __init__(self, input_nc, output_nc, ngf=64, n_blocks=6, last_layer='softmax',
+                 norm_layer=nn.BatchNorm2d, use_dropout=False):
         assert(n_blocks >= 0)
-        super(StyleTransformResNet, self).__init__()
+        super(AEResNet, self).__init__()
         self.input_nc = input_nc
         self.output_nc = output_nc
         self.ngf = ngf
-        self.gpu_ids = gpu_ids
 
         model = [nn.Conv2d(input_nc, ngf, kernel_size=7, padding=3), # out_size = input_size
                  norm_layer(ngf, affine=True),
@@ -53,10 +51,7 @@ class StyleTransformResNet(nn.Module):
         self.model = nn.Sequential(*model)
 
     def forward(self, input):
-        if self.gpu_ids and isinstance(input.data, torch.cuda.FloatTensor):
-            return nn.parallel.data_parallel(self.model, input, self.gpu_ids)
-        else:
-            return self.model(input)
+        return self.model(input)
 
 
 # Define a resnet block
@@ -86,5 +81,3 @@ class ResnetBlock(nn.Module):
     def forward(self, x):
         out = x + self.conv_block(x)
         return out
-
-
