@@ -7,9 +7,9 @@ RESNET_OUTPLANES = 2048
 
 
 def mask_augment(v_x, drop_rate=0):
-    B, _, H, W = v_x.shape[0]
+    B, _, H, W = v_x.shape
     drop_rate = torch.ones(B, 1, H, W) * (1 - drop_rate)
-    mask = torch.bernoulli(drop_rate)
+    mask = torch.bernoulli(drop_rate).to(v_x.device)
     v_x = v_x * mask.expand_as(v_x)
     return v_x, mask
 
@@ -20,7 +20,7 @@ class SemanticInductiveBias(nn.Module):
         self.num_classes = num_classes
 
         self.encoder = AEResNet(3, num_classes, ngf=64, n_blocks=6, last_layer='softmax')
-        self.decoder = AEResNet(num_classes+3, ngf=64, n_blocks=6, last_layer='tanh')
+        self.decoder = AEResNet(num_classes+3, 3, ngf=64, n_blocks=6, last_layer='tanh')
 
     def forward(self, x):
         logits = self.encoder(x)

@@ -49,8 +49,8 @@ class HorseDataset(data.Dataset):
         ])
 
         transform_target = tnt.transform.compose([
-            lambda x: x.astype(np.int32),
-            lambda x: np.int32(x == 255),
+            lambda x: x == 255,
+            lambda x: x.astype(np.long),
             torch.from_numpy,
             lambda x: x.contiguous(),
         ])
@@ -95,7 +95,7 @@ class HorseDataset(data.Dataset):
         img = np.array(img, dtype=np.uint8)
 
         lbl = m.imread(lbl_path)
-        lbl = np.array(lbl, dtype=np.int32)
+        lbl = np.array(lbl, dtype=np.long)
 
         #img, lbl = self.transform(img, lbl)
         img, lbl = self.transform_fun((img, lbl))

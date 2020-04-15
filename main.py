@@ -3,31 +3,32 @@ import os
 import torch
 import numpy as np
 import torch.optim as optim
+import torch.nn.functional as F
 import util.vutils as vutils
 from args import parser
 from collections import OrderedDict
 
-from data.data_loader import CreateDataLoader, InfiniteDataLoader
-from util.visualizer import Visualizer
+from data.data_loader import CustomDatasetDataLoader, InfiniteDataLoader
+#from util.visualizer import Visualizer
 from models.semantic_inductive_bias import SemanticInductiveBias
 
 
 #########################################################################
 # options
 opt = parser.parse_args()
-opt.name += '_%s/lr%s_lb%s' % (opt.dataset, opt.lrs, opt.lambdas)
-device = torch.device('cuda:' + opt.gpu)
+opt.name += '_%s/%d' % (opt.dataset, opt.manual_seed)
+device = torch.device('cuda:%d' % opt.gpu)
 
 # data_loaders
 val_loader = CustomDatasetDataLoader(opt, istrain=False)
 train_loader = CustomDatasetDataLoader(opt, istrain=True, issup=False)
-opt = train_loader.update_opt()
+opt = train_loader.update_opt(opt)
 
 ## wrap with infinite loader
 #train_loader = InfiniteDataLoader(train_loader)
 
-# Visualizer
-visualizer = Visualizer(opt)
+## Visualizer
+#visualizer = Visualizer(opt)
 
 print(opt)
 
@@ -88,7 +89,7 @@ def display_imgs(images, epoch, i, subset='train', do_save=0):
 #-----------------------------------------------------------------------
 def evaluate(model, data_loader, device, num_classes):
     model.eval()
-    confmat = vutils.ConfusionMatrix(opt.)
+    confmat = vutils.ConfusionMatrix(num_classes)
     metric_logger = vutils.MetricLogger(delimiter="  ")
     header = 'Test:'
 
@@ -148,17 +149,16 @@ model = SemanticInductiveBias(opt.output_nc).to(device)
 
 #-----------------------------------------------------------------------
 # optimizers
-lrs = opt.lrs.split(',')
 params_to_optimize = [
-    {"params": [p for p in model.encoder.parameters() if p.requires_grad], 'lr': lrs[0]},
-    {"params": [p for p in model.decoder.parameters() if p.requires_grad], 'lr': lrs[1]},
+    {"params": [p for p in model.encoder.parameters() if p.requires_grad], 'lr': opt.lrs[0]},
+    {"params": [p for p in model.decoder.parameters() if p.requires_grad], 'lr': opt.lrs[1]},
 ]
 
 optimizer = torch.optim.Adam(params_to_optimize,
-                             lr=opt.lr, betas=(opt.beta1, 0.999))
+                             lr=opt.lrs[0], betas=(opt.beta1, 0.999))
 
 lr_scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer,
-    lambda x: (1 - x / (len(train_loader) * args.epochs)) ** 0.9)
+    lambda x: (1 - x / (len(train_loader) * opt.epochs)) ** 0.9)
 
 #-----------------------------------------------------------------------
 # training
@@ -174,7 +174,7 @@ for epoch in range(opt.epochs):
             'epoch': epoch,
             'opt': opt
         },
-        os.path.join(args.output_dir, 'model_{}.pth'.format(opt.name)))
+        os.path.join(opt.output_dir, 'model_{}.pth'.format(opt.name)))
 
 total_time = time.time() - start_time
 total_time_str = str(datetime.timedelta(seconds=int(total_time)))

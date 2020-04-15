@@ -5,22 +5,20 @@ import numpy as np
 
 class CustomDatasetDataLoader(object):
     def __init__(self, opt, istrain=False, issup=False):
+        opt.isTrain = istrain
         self.dataset = CreateDataset(opt)
         batchSize = opt.batchSize if istrain else 1
         self.batchSize = batchSize
 
-        if istrain:
-            if issup:
-                my_sampler = SubsetRandomSampler(self.dataset.sup_indices)
-            else:
-                my_sampler = None
+        if istrain and issup:
+            my_sampler = SubsetRandomSampler(self.dataset.sup_indices)
         else:
-            my_sampler = SequentialSampler(self.dataset)
+            my_sampler = None
 
-        self.dataloader_sup = torch.utils.data.DataLoader(
+        self.dataloader = torch.utils.data.DataLoader(
             self.dataset,
             batch_size=batchSize,
-            shuffle=not issup,
+            shuffle=istrain and not issup,
             sampler=my_sampler,
             num_workers=int(opt.nThreads),
             drop_last=False)
