@@ -35,12 +35,14 @@ class M2NISTDataset(data.Dataset):
 
         # sup indices
         totNum = self.__len__()
-        if (opt.sup_portion >= 0 and opt.sup_portion <= 1):
+        if (opt.sup_portion > 0 and opt.sup_portion <= 1):
             while True:
                 self.sup_indices = np.random.randint(0, totNum, int(opt.sup_portion * totNum))
                 yy = y[self.sup_indices]
                 if yy.sum(axis=(0,1,2)).all():
                     break
+        elif opt.sup_portion == 0:
+            self.sup_indices = []
         else:
             # sup_portion = 0, 1, ..., 10
             self.sup_indices = np.concatenate([np.arange(i,totNum,10)

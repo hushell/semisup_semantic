@@ -13,7 +13,7 @@ parser.add_argument('--input_nc', type=int, default=3, help='# of input image ch
 parser.add_argument('--output_nc', type=int, default=2, help='# of output image channels')
 parser.add_argument('--ignore_index', type=int, default=-100, help='mask this class without contributing to nll_loss')
 parser.add_argument('--transforms', type=str, default='flip', help='crop, flip, resize')
-parser.add_argument('--sup_portion', type=int, default=0.0, help='portion of supervised, range=0,...,10 or [0,1]')
+parser.add_argument('--sup_portion', type=int, default=0.01, help='portion of supervised, range=0,...,10 or [0,1]')
 
 ################################
 # model settings
