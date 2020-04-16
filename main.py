@@ -25,7 +25,7 @@ import matplotlib.pyplot as plt
 opt = parser.parse_args()
 
 # output directories
-opt.out_dir = os.path.join(opt.out_dir, opt.name,
+opt.out_dir = os.path.join(opt.out_dir, opt.dataset, opt.name,
                            'suprate%.3f_%d' % (opt.sup_portion, opt.seed))
 os.makedirs(opt.out_dir, exist_ok=True)
 
@@ -91,42 +91,43 @@ def evaluate(model, data_loader, writer, device, num_classes, epoch):
         confmat.reduce_from_all_processes()
 
         # visualization
-        for i, batch in enumerate(data_loader):
-            if i >= 5:
-                break
-            image, target = batch['A'].to(device), batch['B'].to(device)
-            logits, img_hat = model(image)
+        if epoch % opt.print_freq == 0:
+            for i, batch in enumerate(data_loader):
+                if i >= 5:
+                    break
+                image, target = batch['A'].to(device), batch['B'].to(device)
+                logits, img_hat = model(image)
 
-            if epoch == 0:
-                # image
-                imean = torch.tensor(data_loader.dataset.mean).view(-1,1,1)
-                istd = torch.tensor(data_loader.dataset.std).view(-1,1,1)
-                image = image[0].detach().cpu() * istd + imean
-                image = image.transpose(0,2)
+                if epoch == 0:
+                    # image
+                    imean = torch.tensor(data_loader.dataset.mean).view(-1,1,1)
+                    istd = torch.tensor(data_loader.dataset.std).view(-1,1,1)
+                    image = image[0].detach().cpu() * istd + imean
+                    image = image.transpose(0,2)
+                    fig = plt.figure()
+                    plt.imshow(image)
+                    writer.add_figure(f"image-gt/img-{i}", fig, global_step=0)
+
+                    # label
+                    label = target[0].detach()
+                    label = tensor2lab(label, num_classes, data_loader.dataset.label2color)
+                    fig = plt.figure()
+                    plt.imshow(label)
+                    writer.add_figure(f"label-gt/lab-{i}", fig, global_step=0)
+
+                # image_hat
+                image = img_hat[0].detach() * 0.5 + 0.5
+                image = image.transpose(0,2).cpu()
                 fig = plt.figure()
                 plt.imshow(image)
-                writer.add_figure(f"image-gt/img-{i}", fig, global_step=0)
+                writer.add_figure(f"image-pred/img-epoch{epoch}", fig, global_step=i)
 
-                # label
-                label = target[0].detach()
+                # logits
+                label = logits[0].detach().argmax(0)
                 label = tensor2lab(label, num_classes, data_loader.dataset.label2color)
                 fig = plt.figure()
                 plt.imshow(label)
-                writer.add_figure(f"label-gt/lab-{i}", fig, global_step=0)
-
-            # image_hat
-            image = img_hat[0].detach() * 0.5 + 0.5
-            image = image.transpose(0,2).cpu()
-            fig = plt.figure()
-            plt.imshow(image)
-            writer.add_figure(f"image-pred/img-epoch{epoch}", fig, global_step=i)
-
-            # logits
-            label = logits[0].detach().argmax(0)
-            label = tensor2lab(label, num_classes, data_loader.dataset.label2color)
-            fig = plt.figure()
-            plt.imshow(label)
-            writer.add_figure(f"label-pred/lab-epoch{epoch}", fig, global_step=i)
+                writer.add_figure(f"label-pred/lab-epoch{epoch}", fig, global_step=i)
 
     _, _, mIoU = confmat.compute()
     mIoU = mIoU.mean().item()
@@ -141,6 +142,8 @@ def train_one_epoch(model, criterion, optimizer, data_loader, lr_scheduler,
     metric_logger = vutils.MetricLogger(delimiter="  ")
     metric_logger.add_meter('lr', vutils.SmoothedValue(window_size=1, fmt='{value}'))
     header = 'Epoch: [{}]'.format(epoch)
+
+    lr_scheduler.step()
 
     for idx, batch in enumerate(metric_logger.log_every(data_loader, print_freq, header)):
         image, target = batch['A'].to(device), batch['B'].to(device)
@@ -162,8 +165,6 @@ def train_one_epoch(model, criterion, optimizer, data_loader, lr_scheduler,
 
         optimizer.step()
 
-        lr_scheduler.step()
-
         metric_logger.update(loss=loss.item(),
                              ce=ce, kl=kl,
                              lr=optimizer.param_groups[0]["lr"])
@@ -171,7 +172,6 @@ def train_one_epoch(model, criterion, optimizer, data_loader, lr_scheduler,
         writer.add_scalar("train/loss", loss.item(), global_step=epoch*len(data_loader) + idx)
         writer.add_scalar("train/ce", ce, global_step=epoch*len(data_loader) + idx)
         writer.add_scalar("train/kl", kl, global_step=epoch*len(data_loader) + idx)
-
 
 #########################################################################
 # main
@@ -219,7 +219,7 @@ total_time = time.time() - start_time
 total_time_str = str(datetime.timedelta(seconds=int(total_time)))
 logger.info('==> Training time {}'.format(total_time_str))
 
-msg = '==> mv {} {}'.format(os.path.join(opt.out_dir, 'model_BEST.pth'),
-                            os.path.join(opt.out_dir, 'model_BEST{:.3f}.pth'.format(best_mIoU)))
+msg = 'mv {} {}'.format(os.path.join(opt.out_dir, 'model_BEST.pth'),
+                        os.path.join(opt.out_dir, 'model_BEST{:.3f}.pth'.format(best_mIoU)))
 logger.info(msg)
 os.system(msg)
