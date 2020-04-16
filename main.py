@@ -103,7 +103,7 @@ def evaluate(model, data_loader, writer, device, num_classes, epoch):
                     imean = torch.tensor(data_loader.dataset.mean).view(-1,1,1)
                     istd = torch.tensor(data_loader.dataset.std).view(-1,1,1)
                     image = image[0].detach().cpu() * istd + imean
-                    image = image.transpose(0,2)
+                    image = image.permute(1,2,0)
                     # label
                     label = target[0].detach()
                     label = tensor2lab(label, num_classes, data_loader.dataset.label2color)
@@ -117,7 +117,7 @@ def evaluate(model, data_loader, writer, device, num_classes, epoch):
 
                 # image_hat
                 image = img_hat[0].detach() * 0.5 + 0.5
-                image = image.transpose(0,2).cpu()
+                image = image.permute(1,2,0).cpu()
                 fig = plt.figure()
                 plt.imshow(image)
                 writer.add_figure(f"image-pred/img-epoch{epoch}", fig, global_step=i)

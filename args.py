@@ -17,7 +17,7 @@ parser.add_argument('--epochs', default=200, type=int, help='number of epochs')
 parser.add_argument('--lrs', type=float, nargs='*', default=[1e-4, 1e-4], help='encoder, decoder')
 parser.add_argument('--lr_policy', type=str, default='table', help='learning rate policy: lambda|table')
 parser.add_argument('--beta1', type=float, default=0.5, help='momentum term of ADAM')
-parser.add_argument('--sup_portion', type=int, default=0.01, help='portion of supervised, range=0,...,10 or [0,1]')
+parser.add_argument('--sup_portion', type=float, default=0.01, help='portion of supervised, range=0,...,10 or [0,1]')
 parser.add_argument('--x_drop', type=float, default=0.99, help='x dropout rate')
 
 ################################
