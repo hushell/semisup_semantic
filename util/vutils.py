@@ -7,6 +7,9 @@ import torch.distributed as dist
 
 import errno
 import os
+import logging
+import random as pyrandom
+import numpy as np
 
 
 class SmoothedValue(object):
@@ -281,3 +284,42 @@ def init_distributed_mode(args):
     torch.distributed.init_process_group(backend=args.dist_backend, init_method=args.dist_url,
                                          world_size=args.world_size, rank=args.rank)
     setup_for_distributed(args.rank == 0)
+
+
+def set_random_seed(seed=3):
+    pyrandom.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+
+
+def to_device(input, device):
+    if torch.is_tensor(input):
+        return input.to(device=device)
+    elif isinstance(input, str):
+        return input
+    elif isinstance(input, collections.Mapping):
+        return {k: to_device(sample, device=device) for k, sample in input.items()}
+    elif isinstance(input, collections.Sequence):
+        return [to_device(sample, device=device) for sample in input]
+    else:
+        raise TypeError("Input must contain tensor, dict or list, found {type(input)}")
+
+
+def get_logger(logdir, name):
+    logger = logging.getLogger(name)
+    logger.setLevel(logging.INFO)
+    formatter = logging.Formatter("%(asctime)s %(levelname)s %(message)s")
+
+    ts = str(datetime.datetime.now()).split(".")[0].replace(" ", "_")
+    ts = ts.replace(":", "_").replace("-", "_")
+    file_path = os.path.join(logdir, "run_{}.log".format(ts))
+    file_hdlr = logging.FileHandler(file_path)
+    file_hdlr.setFormatter(formatter)
+
+    strm_hdlr = logging.StreamHandler(sys.stdout)
+    strm_hdlr.setFormatter(formatter)
+
+    logger.addHandler(file_hdlr)
+    logger.addHandler(strm_hdlr)
+    return logger

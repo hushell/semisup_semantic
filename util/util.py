@@ -115,3 +115,4 @@ def partial_sum(v, keep_dims=[]):
         size = result.size()[:len(keep_dims)] + (-1,)
         return result.contiguous().view(size).sum(-1)
 
+

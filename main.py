@@ -10,34 +10,48 @@ from args import parser
 from collections import OrderedDict
 
 from data.data_loader import CustomDatasetDataLoader, InfiniteDataLoader
-#from util.visualizer import Visualizer
 from models.semantic_inductive_bias import SemanticInductiveBias
+from util.util import tensor2lab
+
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
 
 
 #########################################################################
 # options
 opt = parser.parse_args()
-device = torch.device('cuda:%d' % opt.gpu)
-if not os.path.exists(opt.out_dir):
-    os.makedirs(opt.out_dir)
+
+# output directories
+opt.out_dir = os.path.join(opt.out_dir, opt.name,
+                           'suprate%.3f_%d' % (opt.sup_portion, opt.seed))
+os.makedirs(opt.out_dir, exist_ok=True)
 
 # data_loaders
 val_loader = CustomDatasetDataLoader(opt, istrain=False)
-train_loader = CustomDatasetDataLoader(opt, istrain=True, issup=False)
+train_loader = CustomDatasetDataLoader(opt, istrain=True, suponly=False)
 opt = train_loader.update_opt(opt)
 
 ## wrap with infinite loader
 #train_loader = InfiniteDataLoader(train_loader)
 
-## Visualizer
-#visualizer = Visualizer(opt)
+# Visualizer
+writer = SummaryWriter(opt.out_dir, purge_step=0, flush_secs=10)
 
-print(opt)
+# Logger
+logger = vutils.get_logger(opt.out_dir, opt.name)
 
+device = torch.device('cuda:%d' % opt.gpu)
+
+# set rand seed
+vutil.set_random_seed(opt.seed)
+
+logger.info(opt)
 
 #########################################################################
 # algorithm functions
 
+#-----------------------------------------------------------------------
 def criterion(logits, target, img_hat, image, issup, coeff=0.01):
     if issup.any():
         ce = F.cross_entropy(logits[issup,...], target[issup], ignore_index=opt.ignore_index)
@@ -45,51 +59,26 @@ def criterion(logits, target, img_hat, image, issup, coeff=0.01):
         ce = torch.tensor(0, dtype=logits.dtype, device=logits.device)
     l1 = F.l1_loss(img_hat, image)
 
-    # DEBUG
-    if torch.isnan(ce) or torch.isnan(l1):
-        import ipdb; ipdb.set_trace()
-
-    return ce + coeff * l1, ce, l1
+    return ce + coeff * l1, ce.item(), l1.item()
 
 #-----------------------------------------------------------------------
 def get_scheduler(optimizer):
-    # TODO
     if opt.lr_policy == 'lambda':
-        def lambda_rule(epoch): # decay to 0 starting from epoch=niter_decay
-            lr_l = 1.0 - max(0, epoch+1+opt.start_epoch-opt.niter+opt.niter_decay) / float(opt.niter_decay+1)
-            return lr_l
+        def lambda_rule(epoch): # decay to 0 starting from epoch=nepoch_decay
+            scale = 1.0 - max(0, epoch - opt.epochs + opt.epochs_decay) / float(opt.epochs_decay+1)
+            return scale
         scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lambda_rule)
-    elif opt.lr_policy == 'step':
-        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=opt.lr_decay_iters, gamma=0.1)
-    elif opt.lr_policy == 'plateau':
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.2, threshold=0.01, patience=5)
+    elif opt.lr_policy == 'lambda2':
+        scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer,
+            lambda epoch: (1 - epoch / (len(train_loader) * opt.epochs)) ** 0.9)
+    elif opt.lr_policy == 'table':
+        scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[60, 120], gamma=0.1)
     else:
         return NotImplementedError('learning rate policy [%s] is not implemented', opt.lr_policy)
     return scheduler
 
 #-----------------------------------------------------------------------
-from util.util import tensor2lab
-def display_imgs(images, epoch, i, subset='train', do_save=0):
-    # TODO
-    if opt.display_id <= 0 and opt.no_html:
-        return
-
-    for k, im in images.items():
-        if 'B' in k:
-            images[k] = tensor2lab(im, n_labs=opt.output_nc) # 3HW
-        elif 'A' in k:
-            images[k] = im[0] # 3HW
-            d_mean = torch.FloatTensor(val_loader.dataset.mean).view(-1,1,1) # (3) -> (3,1,1)
-            d_std = torch.FloatTensor(val_loader.dataset.std).view(-1,1,1)
-            images[k] *= d_std
-            images[k] += d_mean
-            images[k] = images[k].mul(255).clamp(0,255).byte().numpy() # 3HW
-        elif 'mask' in k:
-            images[k] = tensor2lab(im, n_labs=2) # 3HW
-    visualizer.display_current_results(images, epoch, i, subset=subset, do_save=do_save)
-
-#-----------------------------------------------------------------------
-def evaluate(model, data_loader, device, num_classes):
+def evaluate(model, data_loader, writer, device, num_classes, epoch):
     model.eval()
     confmat = vutils.ConfusionMatrix(num_classes)
     metric_logger = vutils.MetricLogger(delimiter="  ")
@@ -102,20 +91,60 @@ def evaluate(model, data_loader, device, num_classes):
 
             confmat.update(target.flatten(), output.argmax(1).flatten())
 
-            # TODO visualization
-
         confmat.reduce_from_all_processes()
 
-    return confmat
+        # visualization
+        for i, batch in enumerate(data_loader):
+            if i >= 5:
+                break
+            image, target = batch['A'].to(device), batch['B'].to(device)
+            logits, img_hat = model(image)
+
+            if epoch == 0:
+                # image
+                imean = torch.tensor(data_loader.dataset.mean).view(-1,1,1)
+                istd = torch.tensor(data_loader.dataset.std).view(-1,1,1)
+                image = image[0].detach() * istd + imean
+                image = image.transpose(0,2).cpu()
+                fig = plt.figure()
+                plt.imshow(image)
+                writer.add_figure(f"image-gt/img-{i}", fig, global_step=0)
+
+                # label
+                label = target[0].detach()
+                label = tensor2lab(label, num_classes, data_loader.dataset.label2color)
+                fig = plt.figure()
+                plt.imshow(label)
+                writer.add_figure(f"label-gt/lab-{i}", fig, global_step=0)
+
+            # image_hat
+            image = img_hat[0].detach() * 0.5 + 0.5
+            image = image.transpose(0,2).cpu()
+            fig = plt.figure()
+            plt.imshow(image)
+            writer.add_figure(f"image-pred/img-epoch{epoch}", fig, global_step=i)
+
+            # logits
+            label = logits[0].detach().argmax(0)
+            label = tensor2lab(label, num_classes, data_loader.dataset.label2color)
+            fig = plt.figure()
+            plt.imshow(label)
+            writer.add_figure(f"label-pred/lab-epoch{epoch}", fig, global_step=i)
+
+    _, _, mIoU = confmat.compute()
+    writer.add_scalar("eval/mIoU", mIoU, global_step=epoch)
+
+    return confmat, mIoU
 
 #-----------------------------------------------------------------------
-def train_one_epoch(model, criterion, optimizer, data_loader, lr_scheduler, device, epoch, print_freq):
+def train_one_epoch(model, criterion, optimizer, data_loader, lr_scheduler, writer,
+                    device, epoch, print_freq):
     model.train()
     metric_logger = vutils.MetricLogger(delimiter="  ")
     metric_logger.add_meter('lr', vutils.SmoothedValue(window_size=1, fmt='{value}'))
     header = 'Epoch: [{}]'.format(epoch)
 
-    for batch in metric_logger.log_every(data_loader, print_freq, header):
+    for idx, batch in enumerate(metric_logger.log_every(data_loader, print_freq, header)):
         image, target = batch['A'].to(device), batch['B'].to(device)
         logits, img_hat = model(image)
 
@@ -125,21 +154,25 @@ def train_one_epoch(model, criterion, optimizer, data_loader, lr_scheduler, devi
         loss.backward()
 
         # DEBUG
-        #print('--------- DEBUG -----------')
+        #logger.info('--------- DEBUG -----------')
         #for group in optimizer.param_groups:
         #    for p in group['params']:
         #        if p.grad is None: continue
         #        break
-        #    print(p.shape, p.grad.mean())
-        #print('--------- DEBUG -----------')
+        #    logger.info(p.shape, p.grad.mean())
+        #logger.info('--------- DEBUG -----------')
 
         optimizer.step()
 
-        #lr_scheduler.step()
+        lr_scheduler.step()
 
         metric_logger.update(loss=loss.item(),
                              ce=ce, kl=kl,
                              lr=optimizer.param_groups[0]["lr"])
+
+        writer.add_scalar("train/loss", loss.item(), global_step=epoch*len(data_loader) + idx)
+        writer.add_scalar("train/ce", ce, global_step=epoch*len(data_loader) + idx)
+        writer.add_scalar("train/kl", kl, global_step=epoch*len(data_loader) + idx)
 
 
 #########################################################################
@@ -159,29 +192,36 @@ params_to_optimize = [
 optimizer = torch.optim.Adam(params_to_optimize,
                              lr=opt.lrs[0], betas=(opt.beta1, 0.999))
 
-lr_scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer,
-    lambda x: (1 - x / (len(train_loader) * opt.epochs)) ** 0.9)
+lr_scheduler = get_scheduler(optimizer)
 
 #-----------------------------------------------------------------------
 # training
+best_mIoU = 0
 start_time = time.time()
 for epoch in range(opt.epochs):
-    train_one_epoch(model, criterion, optimizer, train_loader, lr_scheduler, device, epoch, opt.print_freq)
-    confmat = evaluate(model, val_loader, device=device, num_classes=opt.output_nc)
-    print(confmat)
-    torch.save(
-        {
-            'model': model.state_dict(),
-            'optimizer': optimizer.state_dict(),
-            'epoch': epoch,
-            'opt': opt
-        },
-        os.path.join(opt.out_dir, 'model_LAST.pth'))
+    train_one_epoch(model, criterion, optimizer, train_loader, lr_scheduler,
+                    writer, device, epoch, opt.print_freq)
+    confmat, mIoU = evaluate(model, val_loader, writer,
+                             device=device, num_classes=opt.output_nc)
+    logger.info(confmat)
+
+    if mIoU > best_mIoU:
+        logger.info('==> Improved mIoU from %.3f --> %.3f' % (mIoU, best_mIoU))
+        best_mIoU = mIoU
+        torch.save(
+            {
+                'model': model.state_dict(),
+                'optimizer': optimizer.state_dict(),
+                'epoch': epoch,
+                'opt': opt
+            },
+            os.path.join(opt.out_dir, 'model_BEST.pth'))
 
 total_time = time.time() - start_time
 total_time_str = str(datetime.timedelta(seconds=int(total_time)))
-print('Training time {}'.format(total_time_str))
+logger.info('==> Training time {}'.format(total_time_str))
 
-
-
-
+msg = '==> mv {} {}'.format(os.path.join(opt.out_dir, 'model_BEST.pth'),
+                            os.path.join(opt.out_dir, 'model_BEST{:.3f}.pth'.format(best_mIoU)))
+logger.info(msg)
+os.system(msg)

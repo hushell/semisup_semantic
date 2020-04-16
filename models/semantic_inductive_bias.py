@@ -15,12 +15,12 @@ def mask_augment(v_x, drop_rate=0):
 
 
 class SemanticInductiveBias(nn.Module):
-    def __init__(self, num_classes=21, drop_rate=0.9):
+    def __init__(self, num_classes=21, drop_rate=0.9, ngf=64, n_blocks=6):
         super(SemanticInductiveBias, self).__init__()
         self.num_classes = num_classes
 
-        self.encoder = AEResNet(3, num_classes, ngf=64, n_blocks=6, last_layer='softmax')
-        self.decoder = AEResNet(num_classes+3, 3, ngf=64, n_blocks=6, last_layer='tanh')
+        self.encoder = AEResNet(3, num_classes, ngf=ngf, n_blocks=n_blocks, last_layer='softmax')
+        self.decoder = AEResNet(num_classes+3, 3, ngf=ngf, n_blocks=n_blocks, last_layer='tanh')
 
     def forward(self, x):
         logits = self.encoder(x)
