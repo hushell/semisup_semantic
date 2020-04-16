@@ -1,6 +1,7 @@
 import time
 import datetime
 import os
+import sys
 import torch
 import numpy as np
 import torch.optim as optim
@@ -12,6 +13,7 @@ from collections import OrderedDict
 from data.data_loader import CustomDatasetDataLoader, InfiniteDataLoader
 from models.semantic_inductive_bias import SemanticInductiveBias
 from util.util import tensor2lab
+from tensorboardX import SummaryWriter
 
 import matplotlib
 matplotlib.use("Agg")
@@ -44,7 +46,7 @@ logger = vutils.get_logger(opt.out_dir, opt.name)
 device = torch.device('cuda:%d' % opt.gpu)
 
 # set rand seed
-vutil.set_random_seed(opt.seed)
+vutils.set_random_seed(opt.seed)
 
 logger.info(opt)
 
@@ -64,15 +66,10 @@ def criterion(logits, target, img_hat, image, issup, coeff=0.01):
 #-----------------------------------------------------------------------
 def get_scheduler(optimizer):
     if opt.lr_policy == 'lambda':
-        def lambda_rule(epoch): # decay to 0 starting from epoch=nepoch_decay
-            scale = 1.0 - max(0, epoch - opt.epochs + opt.epochs_decay) / float(opt.epochs_decay+1)
-            return scale
-        scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lambda_rule)
-    elif opt.lr_policy == 'lambda2':
         scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer,
             lambda epoch: (1 - epoch / (len(train_loader) * opt.epochs)) ** 0.9)
     elif opt.lr_policy == 'table':
-        scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[60, 120], gamma=0.1)
+        scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[100, 160], gamma=0.1)
     else:
         return NotImplementedError('learning rate policy [%s] is not implemented', opt.lr_policy)
     return scheduler
@@ -104,8 +101,8 @@ def evaluate(model, data_loader, writer, device, num_classes, epoch):
                 # image
                 imean = torch.tensor(data_loader.dataset.mean).view(-1,1,1)
                 istd = torch.tensor(data_loader.dataset.std).view(-1,1,1)
-                image = image[0].detach() * istd + imean
-                image = image.transpose(0,2).cpu()
+                image = image[0].detach().cpu() * istd + imean
+                image = image.transpose(0,2)
                 fig = plt.figure()
                 plt.imshow(image)
                 writer.add_figure(f"image-gt/img-{i}", fig, global_step=0)
@@ -132,13 +129,14 @@ def evaluate(model, data_loader, writer, device, num_classes, epoch):
             writer.add_figure(f"label-pred/lab-epoch{epoch}", fig, global_step=i)
 
     _, _, mIoU = confmat.compute()
+    mIoU = mIoU.mean().item()
     writer.add_scalar("eval/mIoU", mIoU, global_step=epoch)
 
     return confmat, mIoU
 
 #-----------------------------------------------------------------------
-def train_one_epoch(model, criterion, optimizer, data_loader, lr_scheduler, writer,
-                    device, epoch, print_freq):
+def train_one_epoch(model, criterion, optimizer, data_loader, lr_scheduler,
+                    writer, device, epoch, print_freq):
     model.train()
     metric_logger = vutils.MetricLogger(delimiter="  ")
     metric_logger.add_meter('lr', vutils.SmoothedValue(window_size=1, fmt='{value}'))
@@ -202,11 +200,11 @@ for epoch in range(opt.epochs):
     train_one_epoch(model, criterion, optimizer, train_loader, lr_scheduler,
                     writer, device, epoch, opt.print_freq)
     confmat, mIoU = evaluate(model, val_loader, writer,
-                             device=device, num_classes=opt.output_nc)
+                             device, opt.output_nc, epoch)
     logger.info(confmat)
 
     if mIoU > best_mIoU:
-        logger.info('==> Improved mIoU from %.3f --> %.3f' % (mIoU, best_mIoU))
+        logger.info('==> Improved mIoU from %.3f --> %.3f\n' % (best_mIoU, mIoU))
         best_mIoU = mIoU
         torch.save(
             {

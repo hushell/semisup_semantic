@@ -16,15 +16,18 @@ def tensor2im(image_tensor, imtype=np.uint8):
     #image_numpy = image_numpy * 255.0
     return image_numpy.astype(imtype)
 
-def tensor2lab(lab_tensor, n_labs=None, label2color=None):
+def tensor2lab(seg_map, n_labs=None, label2color=None):
+    '''
+    seg_map: H x W
+    '''
+    assert(len(seg_map.shape) == 2)
     assert(n_labs is not None or label2color is not None)
     if label2color is None:
         label2color = plt.cm.jet(np.linspace(0,1,n_labs), bytes=True)[:,0:3]
-    seg_map = lab_tensor[0] # HW
-    seg_map = seg_map.astype(np.int32)
-    assert(len(seg_map.shape) == 2)
+    seg_map = seg_map.cpu().numpy().astype(np.int32)
     seg_image = label2color[seg_map].astype(np.uint8) # HW3
-    return seg_image.transpose((2,0,1)) # 3HW
+    #return seg_image.transpose((2,0,1)) # 3HW
+    return seg_image
 
 def diagnose_network(net, name='network'):
     mean = 0.0

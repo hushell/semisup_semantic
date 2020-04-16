@@ -7,6 +7,7 @@ import torch.distributed as dist
 
 import errno
 import os
+import sys
 import logging
 import random as pyrandom
 import numpy as np
@@ -109,7 +110,7 @@ class ConfusionMatrix(object):
     def __str__(self):
         acc_global, acc, iu = self.compute()
         return (
-            'global correct: {:.1f}\n'
+            '\nglobal correct: {:.1f}\n'
             'average row correct: {}\n'
             'IoU: {}\n'
             'mean IoU: {:.1f}').format(
