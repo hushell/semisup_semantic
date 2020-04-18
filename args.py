@@ -19,6 +19,7 @@ parser.add_argument('--lr_policy', type=str, default='table', help='learning rat
 parser.add_argument('--beta1', type=float, default=0.5, help='momentum term of ADAM')
 parser.add_argument('--sup_portion', type=float, default=0.01, help='portion of supervised, range=0,...,10 or [0,1]')
 parser.add_argument('--x_drop', type=float, default=0.99, help='x dropout rate')
+parser.add_argument('--model', type=str, default='sib', help='model type: baseline|sib')
 
 ################################
 # data settings

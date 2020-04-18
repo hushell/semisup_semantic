@@ -11,6 +11,7 @@ from args import parser
 from collections import OrderedDict
 
 from data.data_loader import CustomDatasetDataLoader, InfiniteDataLoader
+from models.baseline import Baseline
 from models.semantic_inductive_bias import SemanticInductiveBias
 from util.util import tensor2lab
 from tensorboardX import SummaryWriter
@@ -59,9 +60,13 @@ def criterion(logits, target, img_hat, image, issup, coeff=0.01):
         ce = F.cross_entropy(logits[issup,...], target[issup], ignore_index=opt.ignore_index)
     else:
         ce = torch.tensor(0, dtype=logits.dtype, device=logits.device)
-    l1 = F.l1_loss(img_hat, image)
 
-    return ce + coeff * l1, ce.item(), l1.item()
+    if img_hat is None:
+        l1 = torch.tensor(0, dtype=logits.dtype, device=logits.device)
+    else:
+        l1 = F.l1_loss(img_hat, image)
+
+    return ce + coeff * l1, ce, l1
 
 #-----------------------------------------------------------------------
 def get_scheduler(optimizer):
@@ -151,8 +156,15 @@ def train_one_epoch(model, criterion, optimizer, data_loader, lr_scheduler,
 
         loss, ce, kl = criterion(logits, target, img_hat, image, batch['issup'])
 
+        metric_logger.update(loss=loss.item(),
+                             ce=ce.item(), kl=kl.item(),
+                             lr=optimizer.param_groups[0]["lr"])
+
         optimizer.zero_grad()
-        loss.backward()
+
+        if loss.grad_fn is not None:
+            loss.backward()
+            writer.add_scalar("train/loss", loss.item(), global_step=epoch*len(data_loader) + idx)
 
         # DEBUG
         #logger.info('--------- DEBUG -----------')
@@ -165,20 +177,20 @@ def train_one_epoch(model, criterion, optimizer, data_loader, lr_scheduler,
 
         optimizer.step()
 
-        metric_logger.update(loss=loss.item(),
-                             ce=ce, kl=kl,
-                             lr=optimizer.param_groups[0]["lr"])
-
-        writer.add_scalar("train/loss", loss.item(), global_step=epoch*len(data_loader) + idx)
-        writer.add_scalar("train/ce", ce, global_step=epoch*len(data_loader) + idx)
-        writer.add_scalar("train/kl", kl, global_step=epoch*len(data_loader) + idx)
+        if ce.grad_fn is not None:
+            writer.add_scalar("train/ce", ce.item(), global_step=epoch*len(data_loader) + idx)
+        if kl.grad_fn is not None:
+            writer.add_scalar("train/kl", kl.item(), global_step=epoch*len(data_loader) + idx)
 
 #########################################################################
 # main
 
 #-----------------------------------------------------------------------
 # model
-model = SemanticInductiveBias(opt.output_nc, opt.x_drop).to(device)
+if opt.model == 'baseline':
+    model = Baseline(opt.output_nc).to(device)
+elif opt.model == 'sib':
+    model = SemanticInductiveBias(opt.output_nc, opt.x_drop).to(device)
 
 #-----------------------------------------------------------------------
 # optimizers
