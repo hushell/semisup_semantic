@@ -178,7 +178,7 @@ def train_one_epoch(model, criterion, optimizer, data_loader, lr_scheduler,
 
 #-----------------------------------------------------------------------
 # model
-model = SemanticInductiveBias(opt.output_nc).to(device)
+model = SemanticInductiveBias(opt.output_nc, opt.x_drop).to(device)
 
 #-----------------------------------------------------------------------
 # optimizers

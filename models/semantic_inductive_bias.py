@@ -18,6 +18,7 @@ class SemanticInductiveBias(nn.Module):
     def __init__(self, num_classes=21, drop_rate=0.9, ngf=64, n_blocks=6):
         super(SemanticInductiveBias, self).__init__()
         self.num_classes = num_classes
+        self.drop_rate = drop_rate
 
         self.encoder = AEResNet(3, num_classes, ngf=ngf, n_blocks=n_blocks, last_layer='softmax')
         self.decoder = AEResNet(num_classes+3, 3, ngf=ngf, n_blocks=n_blocks, last_layer='tanh')
@@ -26,7 +27,7 @@ class SemanticInductiveBias(nn.Module):
         logits = self.encoder(x)
         cls_preds = ArgMax.apply(logits) # B x K x H x W
 
-        x_drop, mask = mask_augment(x)
+        x_drop, mask = mask_augment(x, self.drop_rate)
         semantic = torch.cat([cls_preds, x_drop], 1)
         x_hat = self.decoder(semantic)
 
