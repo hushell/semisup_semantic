@@ -26,7 +26,7 @@ opt = parser.parse_args()
 
 # output directories
 opt.out_dir = os.path.join(opt.out_dir, opt.dataset, opt.name,
-                           'suprate%.3f_%d' % (opt.sup_portion, opt.seed))
+                           'suprate%.3f_droprate%.2f_seed%d' % (opt.sup_portion, opt.x_drop, opt.seed))
 os.makedirs(opt.out_dir, exist_ok=True)
 
 # data_loaders
