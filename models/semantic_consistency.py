@@ -15,29 +15,29 @@ class SemanticConsistency(nn.Module):
         self.drop_rate = drop_rate
 
         self.encoder = AEResNet(3, num_classes, ngf=ngf, n_blocks=n_blocks, last_layer='softmax')
-        self.spool = SetPool(num_classes, ngf, element_dims)
+        #self.spool = SetPool(num_classes, ngf, element_dims)
         #self.decoder = SetDecoder(element_dims, H, W)
 
     def params_to_optimize(self, lrs):
         assert(len(lrs) == 2)
         return [
             {"params": [p for p in self.encoder.parameters() if p.requires_grad], 'lr': lrs[0]},
-            {"params": [p for p in self.spool.parameters() if p.requires_grad], 'lr': lrs[1]},
+            #{"params": [p for p in self.spool.parameters() if p.requires_grad], 'lr': lrs[1]},
         ]
 
     def forward(self, x, vis=False):
         logits, feats = self.encoder(x)
-        cls_feats = self.spool(logits, feats)
+        #cls_feats = self.spool(logits, feats)
 
-        with torch.no_grad(): # TODO: let grad flows both ways
-            x_drop, mask = mask_augment(x, self.drop_rate) # TODO: rand drop rate
-            logits_msk, feats_msk = self.encoder(x_drop)
-            cls_feats_msk = self.spool(logits_msk, feats_msk)
+        x_drop, mask = mask_augment(x, self.drop_rate) # TODO: rand drop rate
+        logits_msk, feats_msk = self.encoder(x_drop)
+        #cls_feats_msk = self.spool(logits_msk, feats_msk)
 
         if vis:
             return logits, logits_msk, x_drop
         else:
-            consistency = self.aux_loss(cls_feats, cls_feats_msk)
+            #consistency = self.aux_loss(cls_feats, cls_feats_msk)
+            consistency = self.aux_loss(logits, logits_msk)
             return logits, consistency
 
     def seg(self, x):
@@ -45,8 +45,10 @@ class SemanticConsistency(nn.Module):
         return output
 
     def aux_loss(self, *args, **kwargs):
-        cls_feats, cls_feats_msk = args
-        return F.mse_loss(cls_feats, cls_feats_msk)
+        #cls_feats, cls_feats_msk = args
+        #return F.mse_loss(cls_feats, cls_feats_msk)
+        logits, logits_msk = args
+        return F.cross_entropy(logits_msk, logits.detach().argmax(1))
 
     def vis(self, data_loader, writer, epoch, num_classes, device):
         for i, batch in enumerate(data_loader):
@@ -80,16 +82,16 @@ class SemanticConsistency(nn.Module):
             # logits
             label = logits[0].detach().argmax(0)
             label = tensor2lab(label, num_classes, data_loader.dataset.label2color)
-            fig = plt.figure()
-            plt.imshow(label)
-            writer.add_figure(f"label-pred/lab-epoch{epoch}", fig, global_step=i)
-
             # masked logits
-            label = logits_msk[0].detach().argmax(0)
-            label = tensor2lab(label, num_classes, data_loader.dataset.label2color)
-            fig = plt.figure()
-            plt.imshow(label)
-            writer.add_figure(f"label-pred/msk-lab-epoch{epoch}", fig, global_step=i)
+            label_msk = logits_msk[0].detach().argmax(0)
+            label_msk = tensor2lab(label_msk, num_classes, data_loader.dataset.label2color)
+            # vis
+            fig, axeslist = plt.subplots(ncols=2, nrows=1)
+            axeslist[0].imshow(label)
+            axeslist[0].set_title('clean')
+            axeslist[1].imshow(label_msk)
+            axeslist[1].set_title('masked')
+            writer.add_figure(f"label-pred/lab-epoch{epoch}", fig, global_step=i)
 
 class SetPool(nn.Module):
     def __init__(self, num_classes, ngf, element_dims):
@@ -104,6 +106,8 @@ class SetPool(nn.Module):
 
     def forward(self, outputs, feats):
         """
+        Find the average feature for each class
+
         feats: B x F x H x W
         labels: B x H x W
         return: B x F x K
