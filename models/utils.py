@@ -1,5 +1,6 @@
 import torch
 import torch.nn.functional as F
+import numpy as np
 
 class ArgMax(torch.autograd.Function):
     @staticmethod

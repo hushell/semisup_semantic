@@ -51,7 +51,7 @@ logger.info(opt)
 # algorithm functions (#TODO: class Algorithm)
 
 #-----------------------------------------------------------------------
-def criterion(logits, target, issup, aux_loss=None, coeff=0.01):
+def criterion(logits, target, issup, aux_loss=None):
     if issup.any():
         ce = F.cross_entropy(logits[issup,...], target[issup], ignore_index=opt.ignore_index)
     else:
@@ -60,7 +60,7 @@ def criterion(logits, target, issup, aux_loss=None, coeff=0.01):
     if aux_loss is None:
         loss = ce
     else:
-        loss = ce + coeff * aux_loss
+        loss = ce + opt.coeff * aux_loss
 
     return loss, ce
 
@@ -175,6 +175,7 @@ for epoch in range(opt.epochs):
                     writer, device, epoch, opt.print_freq)
     confmat, mIoU = evaluate(model, val_loader, writer,
                              device, opt.output_nc, epoch)
+    logger.info('====== Epoch %d ======' % epoch)
     logger.info(confmat)
 
     if mIoU > best_mIoU:

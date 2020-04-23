@@ -20,6 +20,7 @@ parser.add_argument('--beta1', type=float, default=0.5, help='momentum term of A
 parser.add_argument('--sup_portion', type=float, default=0.01, help='portion of supervised, range=0,...,10 or [0,1]')
 parser.add_argument('--x_drop', type=float, default=0.99, help='x dropout rate')
 parser.add_argument('--model', type=str, default='mask', help='model type: baseline|mask|consistency|contrastive')
+parser.add_argument('--coeff', type=float, default=1.0, help='coeff of aux loss')
 
 ################################
 # data settings
