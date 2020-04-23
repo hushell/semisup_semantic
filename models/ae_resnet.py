@@ -27,14 +27,11 @@ class AEResNet(nn.Module):
                                 stride=2, padding=1), # out_size = (input_size - 1) / 2 + 1
                       norm_layer(ngf * mult * 2, affine=True),
                       nn.ReLU(True)]
-        self.encoder = nn.Sequential(*model)
 
-        # Tuner
-        model = []
         mult = 2**n_downsampling
         for i in range(n_blocks): # out_size = input_size; out_nc = input_nc
             model += [ResnetBlock(ngf * mult, 'zero', norm_layer=norm_layer, use_dropout=use_dropout)]
-        self.tuner = nn.Sequential(*model)
+        self.encoder = nn.Sequential(*model)
 
         # Decoder
         model = []
@@ -45,8 +42,10 @@ class AEResNet(nn.Module):
                                          padding=1, output_padding=1), # out_size = input_size * 2
                       norm_layer(int(ngf * mult / 2), affine=True),
                       nn.ReLU(True)]
+        self.decoder = nn.Sequential(*model)
 
-        model += [nn.Conv2d(ngf, output_nc, kernel_size=7, padding=3)] # out_size = input_size
+        # Classifier
+        model = [nn.Conv2d(ngf, output_nc, kernel_size=7, padding=3)] # out_size = input_size
 
         if last_layer == 'softmax':
             model += [nn.LogSoftmax(dim=1)]
@@ -54,13 +53,13 @@ class AEResNet(nn.Module):
             model += [nn.Tanh()]
         else:
             print('Layer name [%s] is not recognized' % last_layer)
+        self.classifier = nn.Sequential(*model)
 
-        self.decoder = nn.Sequential(*model)
 
     def forward(self, input):
         z = self.encoder(input)
-        z = self.tuner(z)
-        return self.decoder(z), z
+        z = self.decoder(z)
+        return self.classifier(z), z
 
 
 # Define a resnet block

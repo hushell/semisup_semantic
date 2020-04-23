@@ -21,3 +21,12 @@ def mask_augment(v_x, drop_rate=0):
     return v_x, mask
 
 
+def tensor2lab(seg_map, n_labs, label2color):
+    '''
+    seg_map: H x W
+    '''
+    assert(len(seg_map.shape) == 2)
+    seg_map = seg_map.cpu().numpy().astype(np.int32)
+    seg_image = label2color[seg_map].astype(np.uint8) # HW3
+    return seg_image
+

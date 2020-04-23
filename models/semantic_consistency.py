@@ -2,11 +2,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from .ae_resnet import AEResNet
-from .utils import ArgMax, mask_augment
-from ..util.util import tensor2lab
+from .utils import ArgMax, mask_augment, tensor2lab
 import matplotlib.pyplot as plt
-
-RESNET_OUTPLANES = 256
 
 
 class SemanticConsistency(nn.Module):
@@ -18,7 +15,7 @@ class SemanticConsistency(nn.Module):
         self.drop_rate = drop_rate
 
         self.encoder = AEResNet(3, num_classes, ngf=ngf, n_blocks=n_blocks, last_layer='softmax')
-        self.spool = SetPool(num_classes, element_dims)
+        self.spool = SetPool(num_classes, ngf, element_dims)
         #self.decoder = SetDecoder(element_dims, H, W)
 
     def params_to_optimize(self, lrs):
@@ -95,14 +92,15 @@ class SemanticConsistency(nn.Module):
             writer.add_figure(f"label-pred/msk-lab-epoch{epoch}", fig, global_step=i)
 
 class SetPool(nn.Module):
-    def __init__(self, num_classes, element_dims):
+    def __init__(self, num_classes, ngf, element_dims):
         super(SetPool, self).__init__()
         self.num_classes = num_classes
+        self.ngf = ngf
         self.element_dims = element_dims
 
         #self.pool = FSPool(output_channels, 20, relaxed=False)
-        #self.proj_s = nn.Conv1d(RESNET_OUTPLANES, self.element_dims, 1)
-        self.bn = nn.BatchNorm1d(RESNET_OUTPLANES)
+        #self.proj_s = nn.Conv1d(ngf, self.element_dims, 1)
+        self.bn = nn.BatchNorm1d(ngf)
 
     def forward(self, outputs, feats):
         """
@@ -110,11 +108,10 @@ class SetPool(nn.Module):
         labels: B x H x W
         return: B x F x K
         """
-        B, Fdim, H, W = feats.shape
-        assert(Fdim == RESNET_OUTPLANES)
+        B = feats.shape[0]
 
         cls_set = ArgMax.apply(outputs) # B x K x H x W
-        feat_set = torch.bmm(feats.view(B, RESNET_OUTPLANES, -1),
+        feat_set = torch.bmm(feats.view(B, self.ngf, -1),
                              cls_set.view(B, self.num_classes, -1).transpose(1,2)) # B x F x K
 
         feat_set = self.bn(feat_set)
@@ -171,8 +168,3 @@ class SetDecoder(nn.Module):
 
         return img_hat, generated_set
 
-
-if __name__ == "__main__":
-    model = SemanticConsistency()
-    x = torch.rand(1, 3, 64, 64)
-    logits, consistency = model.forward(x)

@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from .ae_resnet import AEResNet
-from ..util.util import tensor2lab
+from .utils import tensor2lab
 import matplotlib.pyplot as plt
 
 

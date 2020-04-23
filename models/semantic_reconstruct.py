@@ -2,8 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from .ae_resnet import AEResNet
-from .utils import ArgMax, mask_augment
-from ..util.util import tensor2lab
+from .utils import ArgMax, mask_augment, tensor2lab
 import matplotlib.pyplot as plt
 
 
@@ -86,9 +85,3 @@ class SemanticReconstruct(nn.Module):
             fig = plt.figure()
             plt.imshow(label)
             writer.add_figure(f"label-pred/lab-epoch{epoch}", fig, global_step=i)
-
-
-if __name__ == "__main__":
-    model = SemanticReconstruct()
-    x = torch.rand(1, 3, 64, 64)
-    logits, l1 = model.forward(x)
