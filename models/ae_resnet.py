@@ -15,6 +15,7 @@ class AEResNet(nn.Module):
         self.output_nc = output_nc
         self.ngf = ngf
 
+        # Encoder
         model = [nn.Conv2d(input_nc, ngf, kernel_size=7, padding=3), # out_size = input_size
                  norm_layer(ngf, affine=True),
                  nn.ReLU(True)]
@@ -26,11 +27,17 @@ class AEResNet(nn.Module):
                                 stride=2, padding=1), # out_size = (input_size - 1) / 2 + 1
                       norm_layer(ngf * mult * 2, affine=True),
                       nn.ReLU(True)]
+        self.encoder = nn.Sequential(*model)
 
+        # Tuner
+        model = []
         mult = 2**n_downsampling
         for i in range(n_blocks): # out_size = input_size; out_nc = input_nc
             model += [ResnetBlock(ngf * mult, 'zero', norm_layer=norm_layer, use_dropout=use_dropout)]
+        self.tuner = nn.Sequential(*model)
 
+        # Decoder
+        model = []
         for i in range(n_downsampling):
             mult = 2**(n_downsampling - i)
             model += [nn.ConvTranspose2d(ngf * mult, int(ngf * mult / 2),
@@ -48,10 +55,12 @@ class AEResNet(nn.Module):
         else:
             print('Layer name [%s] is not recognized' % last_layer)
 
-        self.model = nn.Sequential(*model)
+        self.decoder = nn.Sequential(*model)
 
     def forward(self, input):
-        return self.model(input)
+        z = self.encoder(input)
+        z = self.tuner(z)
+        return self.decoder(z), z
 
 
 # Define a resnet block

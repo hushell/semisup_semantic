@@ -3,22 +3,18 @@ import datetime
 import os
 import sys
 import torch
-import numpy as np
-import torch.optim as optim
 import torch.nn.functional as F
 import util.vutils as vutils
-from args import parser
-from collections import OrderedDict
 
+from tensorboardX import SummaryWriter
+from args import parser
 from data.data_loader import CustomDatasetDataLoader, InfiniteDataLoader
 from models.baseline import Baseline
-from models.semantic_inductive_bias import SemanticInductiveBias
-from util.util import tensor2lab
-from tensorboardX import SummaryWriter
+from models.semantic_reconstruct import SemanticReconstruct
+from models.semantic_consistency import SemanticConsistency
 
 import matplotlib
 matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 
 
 #########################################################################
@@ -52,21 +48,21 @@ vutils.set_random_seed(opt.seed)
 logger.info(opt)
 
 #########################################################################
-# algorithm functions
+# algorithm functions (#TODO: class Algorithm)
 
 #-----------------------------------------------------------------------
-def criterion(logits, target, img_hat, image, issup, coeff=0.01):
+def criterion(logits, target, issup, aux_loss=None, coeff=0.01):
     if issup.any():
         ce = F.cross_entropy(logits[issup,...], target[issup], ignore_index=opt.ignore_index)
     else:
         ce = torch.tensor(0, dtype=logits.dtype, device=logits.device)
 
-    if img_hat is None:
-        l1 = torch.tensor(0, dtype=logits.dtype, device=logits.device)
+    if aux_loss is None:
+        loss = ce
     else:
-        l1 = F.l1_loss(img_hat, image)
+        loss = ce + coeff * aux_loss
 
-    return ce + coeff * l1, ce, l1
+    return loss, ce
 
 #-----------------------------------------------------------------------
 def get_scheduler(optimizer):
@@ -97,42 +93,7 @@ def evaluate(model, data_loader, writer, device, num_classes, epoch):
 
         # visualization
         if epoch % opt.print_freq == 0:
-            for i, batch in enumerate(data_loader):
-                if i >= 5:
-                    break
-                image, target = batch['A'].to(device), batch['B'].to(device)
-                logits, img_hat = model(image)
-
-                if epoch == 0:
-                    # image
-                    imean = torch.tensor(data_loader.dataset.mean).view(-1,1,1)
-                    istd = torch.tensor(data_loader.dataset.std).view(-1,1,1)
-                    image = image[0].detach().cpu() * istd + imean
-                    image = image.permute(1,2,0)
-                    # label
-                    label = target[0].detach()
-                    label = tensor2lab(label, num_classes, data_loader.dataset.label2color)
-                    # vis
-                    fig, axeslist = plt.subplots(ncols=2, nrows=1)
-                    axeslist[0].imshow(image)
-                    axeslist[0].set_title('image')
-                    axeslist[1].imshow(label)
-                    axeslist[1].set_title('label')
-                    writer.add_figure(f"gt/img-lab-{i}", fig, global_step=0)
-
-                # image_hat
-                image = img_hat[0].detach() * 0.5 + 0.5
-                image = image.permute(1,2,0).cpu()
-                fig = plt.figure()
-                plt.imshow(image)
-                writer.add_figure(f"image-pred/img-epoch{epoch}", fig, global_step=i)
-
-                # logits
-                label = logits[0].detach().argmax(0)
-                label = tensor2lab(label, num_classes, data_loader.dataset.label2color)
-                fig = plt.figure()
-                plt.imshow(label)
-                writer.add_figure(f"label-pred/lab-epoch{epoch}", fig, global_step=i)
+            model.vis(data_loader, writer, epoch, num_classes, device)
 
     _, _, mIoU = confmat.compute()
     mIoU = mIoU.mean().item()
@@ -152,35 +113,38 @@ def train_one_epoch(model, criterion, optimizer, data_loader, lr_scheduler,
 
     for idx, batch in enumerate(metric_logger.log_every(data_loader, print_freq, header)):
         image, target = batch['A'].to(device), batch['B'].to(device)
-        logits, img_hat = model(image)
+        logits, aux_loss = model(image)
 
-        loss, ce, kl = criterion(logits, target, img_hat, image, batch['issup'])
+        loss, ce = criterion(logits, target, batch['issup'], aux_loss)
 
-        metric_logger.update(loss=loss.item(),
-                             ce=ce.item(), kl=kl.item(),
-                             lr=optimizer.param_groups[0]["lr"])
-
-        optimizer.zero_grad()
-
-        if loss.grad_fn is not None:
+        if loss.grad_fn is not None: # forwarded successfully
+            optimizer.zero_grad()
             loss.backward()
             writer.add_scalar("train/loss", loss.item(), global_step=epoch*len(data_loader) + idx)
 
-        # DEBUG
-        #logger.info('--------- DEBUG -----------')
-        #for group in optimizer.param_groups:
-        #    for p in group['params']:
-        #        if p.grad is None: continue
-        #        break
-        #    logger.info(p.shape, p.grad.mean())
-        #logger.info('--------- DEBUG -----------')
+            # DEBUG NAN
+            #logger.info('--------- DEBUG -----------')
+            #for group in optimizer.param_groups:
+            #    for p in group['params']:
+            #        if p.grad is None: continue
+            #        break
+            #    logger.info(p.shape, p.grad.mean())
+            #logger.info('--------- DEBUG -----------')
 
-        optimizer.step()
+            optimizer.step()
 
         if ce.grad_fn is not None:
             writer.add_scalar("train/ce", ce.item(), global_step=epoch*len(data_loader) + idx)
-        if kl.grad_fn is not None:
-            writer.add_scalar("train/kl", kl.item(), global_step=epoch*len(data_loader) + idx)
+
+        if aux_loss is not None:
+            writer.add_scalar("train/aux_loss", aux_loss.item(), global_step=epoch*len(data_loader) + idx)
+            metric_logger.update(loss=loss.item(),
+                                 ce=ce.item(), aux_loss=aux_loss.item(),
+                                 lr=optimizer.param_groups[0]["lr"])
+        else:
+            metric_logger.update(loss=loss.item(),
+                                 lr=optimizer.param_groups[0]["lr"])
+
 
 #########################################################################
 # main
@@ -189,18 +153,16 @@ def train_one_epoch(model, criterion, optimizer, data_loader, lr_scheduler,
 # model
 if opt.model == 'baseline':
     model = Baseline(opt.output_nc).to(device)
-elif opt.model == 'sib':
-    model = SemanticInductiveBias(opt.output_nc, opt.x_drop).to(device)
+elif opt.model == 'reconstruct':
+    model = SemanticReconstruct(opt.output_nc, opt.x_drop).to(device)
+elif opt.model == 'consistency':
+    model = SemanticConsistency(opt.output_nc, 256, opt.x_drop).to(device)
 
 #-----------------------------------------------------------------------
 # optimizers
-params_to_optimize = [
-    {"params": [p for p in model.encoder.parameters() if p.requires_grad], 'lr': opt.lrs[0]},
-    {"params": [p for p in model.decoder.parameters() if p.requires_grad], 'lr': opt.lrs[1]},
-]
+params = model.params_to_optimize(opt.lrs)
 
-optimizer = torch.optim.Adam(params_to_optimize,
-                             lr=opt.lrs[0], betas=(opt.beta1, 0.999))
+optimizer = torch.optim.Adam(params, lr=opt.lrs[0], betas=(opt.beta1, 0.999))
 
 lr_scheduler = get_scheduler(optimizer)
 
