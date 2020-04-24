@@ -4,17 +4,18 @@ import os
 import sys
 import torch
 import torch.nn.functional as F
-import util.vutils as vutils
 
+import matplotlib
+matplotlib.use("Agg")
+
+import util.vutils as vutils
 from tensorboardX import SummaryWriter
 from args import parser
 from data.data_loader import CustomDatasetDataLoader, InfiniteDataLoader
 from models.baseline import Baseline
 from models.semantic_reconstruct import SemanticReconstruct
 from models.semantic_consistency import SemanticConsistency
-
-import matplotlib
-matplotlib.use("Agg")
+from models.semantic_self_consist import SemanticSelfSupConsistency
 
 
 #########################################################################
@@ -168,6 +169,8 @@ elif opt.model == 'reconstruct':
     model = SemanticReconstruct(opt.output_nc, opt.x_drop).to(device)
 elif opt.model == 'consistency':
     model = SemanticConsistency(opt.output_nc, 256, opt.x_drop).to(device)
+elif opt.model == 'selfconsist':
+    model = SemanticSelfSupConsistency(opt.output_nc, 256, opt.x_drop).to(device)
 
 #-----------------------------------------------------------------------
 # optimizers

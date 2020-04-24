@@ -38,7 +38,7 @@ class SemanticSelfSupConsistency(nn.Module):
         else:
             consistency = self.consist_loss(logits, logits_msk)
             selfsup = self.selfsup_loss(feats_msk, mask)
-            return logits, {'consist':consistency, 'selfsup':selfsup}
+            return logits, {'consist':consistency, 'selfsup':selfsup * 0.05}
 
     def seg(self, x):
         output, _ = self.encoder(x)
@@ -47,9 +47,9 @@ class SemanticSelfSupConsistency(nn.Module):
     def consist_loss(self, logits, logits_msk):
         return F.cross_entropy(logits_msk, logits.detach().argmax(1))
 
-    def selfsup_loss(self, feats, feats_msk, mask):
+    def selfsup_loss(self, feats_msk, mask):
         mask_pred = self.ss_classifier(feats_msk)
-        return F.cross_entropy(mask_pred, mask.detach().long())
+        return F.cross_entropy(mask_pred, mask.detach().squeeze(1).long())
 
     def vis(self, data_loader, writer, epoch, num_classes, device):
         for i, batch in enumerate(data_loader):
