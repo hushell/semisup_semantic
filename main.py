@@ -59,8 +59,12 @@ def criterion(logits, target, issup, aux_loss=None):
 
     if aux_loss is None:
         loss = ce
-    else:
+    elif torch.is_tensor(aux_loss):
         loss = ce + opt.coeff * aux_loss
+    elif isinstance(aux_loss, dict):
+        loss = ce + opt.coeff * sum(aux_loss.values())
+    else:
+        raise ValueError('type(aux_loss)=%s is not supported' % type(aux_loss))
 
     return loss, ce
 
@@ -136,10 +140,17 @@ def train_one_epoch(model, criterion, optimizer, data_loader, lr_scheduler,
         if ce.grad_fn is not None:
             writer.add_scalar("train/ce", ce.item(), global_step=epoch*len(data_loader) + idx)
 
-        if aux_loss is not None:
+        if torch.is_tensor(aux_loss):
             writer.add_scalar("train/aux_loss", aux_loss.item(), global_step=epoch*len(data_loader) + idx)
             metric_logger.update(loss=loss.item(),
                                  ce=ce.item(), aux_loss=aux_loss.item(),
+                                 lr=optimizer.param_groups[0]["lr"])
+        elif isinstance(aux_loss, dict):
+            aux_loss = {k:(v.item() if torch.is_tensor(v) else v) for k,v in aux_loss.items()}
+            for k, v in aux_loss.items():
+                writer.add_scalar("train/%s" % k, v, global_step=epoch*len(data_loader) + idx)
+            metric_logger.update(loss=loss.item(),
+                                 ce=ce.item(), **aux_loss,
                                  lr=optimizer.param_groups[0]["lr"])
         else:
             metric_logger.update(loss=loss.item(),
