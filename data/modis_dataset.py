@@ -41,7 +41,7 @@ class ToTensor(object):
         mask = sample['B']
 
         img = torch.from_numpy(img).float()
-        mask = torch.from_numpy(mask).long()
+        mask = torch.from_numpy(mask).long().squeeze()
 
         return {'A': img,
                 'B': mask}

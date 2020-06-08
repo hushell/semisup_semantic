@@ -1,7 +1,7 @@
 # Prerequisites
 ```
 pip install torchnet tensorboardX tensorboard
-conda install -c menpo opencv
+pip install opencv-python
 ```
 
 # Usage

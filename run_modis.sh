@@ -1,1 +1,1 @@
-python main.py --name modis_baseline --model baseline --dataset modis --input_nc 6 --output_nc 7 --ignore_index -1
+python main.py --name rain --model baseline --dataset modis --input_nc 6 --output_nc 7 --ignore_index -1 --gpu 0
