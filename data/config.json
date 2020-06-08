@@ -32,5 +32,9 @@
   "m2nist":
   {
     "data_path": "./datasets/m2nist/"
+  },
+  "modis":
+  {
+    "data_path": "./datasets/modis/"
   }
 }
