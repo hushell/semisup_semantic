@@ -2,7 +2,6 @@ import os
 import torch
 import random
 import numpy as np
-from dataloaders import custom_transforms as tr
 from torch.utils.data import Dataset
 from torchvision import transforms
 from sklearn.model_selection import train_test_split
@@ -60,7 +59,7 @@ class MODISDataset(Dataset):
     def __init__(self, root, opt):
         super().__init__()
         self.train = opt.isTrain
-        self.modis_dic = np.load(os.path.join(root, '/dataset.npy'), allow_pickle='True').item()
+        self.modis_dic = np.load(os.path.join(root, 'dataset.npy'), allow_pickle='True').item()
         self.X_train, self.y_train, self.X_test, self.y_test = self.data_split(self.modis_dic)
 
         # sup indices
@@ -88,7 +87,7 @@ class MODISDataset(Dataset):
         else:
             image = self.X_test[idx]
             target = self.y_test[idx]
-        sample = {'image': image, 'label': target}
+        sample = {'A': image, 'B': target}
         sample = self.transform(sample)
         sample['issup'] = True
         return sample
@@ -119,7 +118,7 @@ if __name__ == "__main__":
     from collections import OrderedDict
     opt = OrderedDict()
     opt.isTrain = True
-    modis_train = MODIS('../datasets/modis', opt)
+    modis_train = MODISDataset('../datasets/modis', opt)
     dataloader = DataLoader(modis_train, batch_size=8, shuffle=True, num_workers=4)
 
     for i, sample in enumerate(dataloader):
