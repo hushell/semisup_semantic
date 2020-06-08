@@ -52,7 +52,7 @@ class ToTensor(object):
 class MODISDataset(Dataset):
     heightSize = 48
     widthSize = 72
-    n_classes = 8
+    n_classes = 7
     mean=[4.8003e+00, 2.5270e+03, 4.4159e+02, 2.4647e+00, 1.9367e+04, 7.8704e+00],
     std=[4.5098e+00, 9.4051e+02, 9.4881e+01, 1.4661e+00, 1.4378e+04, 5.9816e+00]
 
@@ -60,7 +60,20 @@ class MODISDataset(Dataset):
         super().__init__()
         self.train = opt.isTrain
         self.modis_dic = np.load(os.path.join(root, 'dataset.npy'), allow_pickle='True').item()
-        self.X_train, self.y_train, self.X_test, self.y_test = self.data_split(self.modis_dic)
+        self.X_train, self.y_train_raw, self.X_test, self.y_test_raw = self.data_split(self.modis_dic)
+
+        def discretize(y_raw):
+            y = np.zeros_like(y_raw, dtype=np.int)
+            y[y_raw == 0] = 0
+            y[(y_raw > 0) & (y_raw < 5)] = 1
+            y[(y_raw >= 5) & (y_raw < 17)] = 2
+            y[(y_raw >= 17) & (y_raw < 38)] = 3
+            y[(y_raw >= 38) & (y_raw < 75)] = 4
+            y[(y_raw >= 75) & (y_raw < 100)] = 5
+            y[(y_raw >= 100)] = 6
+            return y
+
+        self.y_train, self.y_test = discretize(self.y_train_raw), discretize(self.y_test_raw)
 
         # sup indices
         self.sup_indices = range(len(self.y_train))
@@ -69,7 +82,7 @@ class MODISDataset(Dataset):
         self.label2color = cm.get_cmap('viridis')(np.linspace(0.0, 1.0, self.n_classes))[:,:3]
 
         self.label2name = np.array(['no rain', '(0, 5)', '[5, 17)', '[17, 38)', '[38, 75)',
-                                    '[75, 100)', '[100, 250)', '[250, infty)'])
+                                    '[75, 100)', '[100, infty)'])
 
         self.transform = transforms.Compose([
             Normalize(
