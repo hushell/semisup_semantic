@@ -7,14 +7,14 @@ import matplotlib.pyplot as plt
 
 
 class SemanticSelfSupConsistency(nn.Module):
-    def __init__(self, num_classes=21, element_dims=128, drop_rate=0.9,
+    def __init__(self, input_nc=3, num_classes=21, element_dims=128, drop_rate=0.9,
                  ngf=64, n_blocks=6, H=64, W=64):
         super(SemanticSelfSupConsistency, self).__init__()
         self.num_classes = num_classes
         self.element_dims = element_dims
         self.drop_rate = drop_rate
 
-        self.encoder = AEResNet(3, num_classes, ngf=ngf, n_blocks=n_blocks, last_layer='softmax')
+        self.encoder = AEResNet(input_nc, num_classes, ngf=ngf, n_blocks=n_blocks, last_layer='softmax')
 
         model = [nn.Conv2d(ngf, 2, kernel_size=7, padding=3)]
         model += [nn.LogSoftmax(dim=1)]

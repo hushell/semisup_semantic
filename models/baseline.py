@@ -7,11 +7,11 @@ import matplotlib.pyplot as plt
 
 
 class Baseline(nn.Module):
-    def __init__(self, num_classes=21, ngf=64, n_blocks=6):
+    def __init__(self, input_nc=3, num_classes=21, ngf=64, n_blocks=6):
         super(Baseline, self).__init__()
         self.num_classes = num_classes
 
-        self.encoder = AEResNet(3, num_classes, ngf=ngf, n_blocks=n_blocks, last_layer='softmax')
+        self.encoder = AEResNet(input_nc, num_classes, ngf=ngf, n_blocks=n_blocks, last_layer='softmax')
 
     def params_to_optimize(self, lrs):
         assert(len(lrs) == 2)

@@ -7,14 +7,14 @@ import matplotlib.pyplot as plt
 
 
 class SemanticConsistency(nn.Module):
-    def __init__(self, num_classes=21, element_dims=128, drop_rate=0.9,
+    def __init__(self, input_nc=3, num_classes=21, element_dims=128, drop_rate=0.9,
                  ngf=64, n_blocks=6, H=64, W=64):
         super(SemanticConsistency, self).__init__()
         self.num_classes = num_classes
         self.element_dims = element_dims
         self.drop_rate = drop_rate
 
-        self.encoder = AEResNet(3, num_classes, ngf=ngf, n_blocks=n_blocks, last_layer='softmax')
+        self.encoder = AEResNet(input_nc, num_classes, ngf=ngf, n_blocks=n_blocks, last_layer='softmax')
         #self.spool = SetPool(num_classes, ngf, element_dims)
         #self.decoder = SetDecoder(element_dims, H, W)
 

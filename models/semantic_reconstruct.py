@@ -7,13 +7,13 @@ import matplotlib.pyplot as plt
 
 
 class SemanticReconstruct(nn.Module):
-    def __init__(self, num_classes=21, drop_rate=0.9, ngf=64, n_blocks=6):
+    def __init__(self, input_nc=3, num_classes=21, drop_rate=0.9, ngf=64, n_blocks=6):
         super(SemanticReconstruct, self).__init__()
         self.num_classes = num_classes
         self.drop_rate = drop_rate
 
-        self.encoder = AEResNet(3, num_classes, ngf=ngf, n_blocks=n_blocks, last_layer='softmax')
-        self.decoder = AEResNet(num_classes+3, 3, ngf=ngf, n_blocks=n_blocks, last_layer='tanh')
+        self.encoder = AEResNet(input_nc, num_classes, ngf=ngf, n_blocks=n_blocks, last_layer='softmax')
+        self.decoder = AEResNet(num_classes+input_nc, input_nc, ngf=ngf, n_blocks=n_blocks, last_layer='tanh')
 
     def params_to_optimize(self, lrs):
         assert(len(lrs) == 2)

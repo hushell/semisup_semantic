@@ -39,11 +39,9 @@ class ToTensor(object):
     def __call__(self, sample):
         img = sample['A']
         mask = sample['B']
-        img = np.array(img).astype(np.float32)
-        mask = np.array(mask).astype(np.float32)
 
         img = torch.from_numpy(img).float()
-        mask = torch.from_numpy(mask).float()
+        mask = torch.from_numpy(mask).long()
 
         return {'A': img,
                 'B': mask}
@@ -64,6 +62,7 @@ class MODISDataset(Dataset):
 
         def discretize(y_raw):
             y = np.zeros_like(y_raw, dtype=np.int)
+            y[y_raw == -1] = -1 # will be ignored in CE loss
             y[y_raw == 0] = 0
             y[(y_raw > 0) & (y_raw < 5)] = 1
             y[(y_raw >= 5) & (y_raw < 17)] = 2

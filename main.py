@@ -122,7 +122,7 @@ def train_one_epoch(model, criterion, optimizer, data_loader, lr_scheduler,
 
         loss, ce = criterion(logits, target, batch['issup'], aux_loss)
 
-        if loss.grad_fn is not None: # forwarded successfully
+        if loss.grad_fn is not None: # that is, forwarded successfully
             optimizer.zero_grad()
             loss.backward()
             writer.add_scalar("train/loss", loss.item(), global_step=epoch*len(data_loader) + idx)
@@ -164,13 +164,13 @@ def train_one_epoch(model, criterion, optimizer, data_loader, lr_scheduler,
 #-----------------------------------------------------------------------
 # model
 if opt.model == 'baseline':
-    model = Baseline(opt.output_nc).to(device)
-elif opt.model == 'reconstruct':
-    model = SemanticReconstruct(opt.output_nc, opt.x_drop).to(device)
+    model = Baseline(opt.input_nc, opt.output_nc).to(device)
+elif opt.model == 'reconstruct': # Not usable
+    model = SemanticReconstruct(opt.input_nc, opt.output_nc, opt.x_drop).to(device)
 elif opt.model == 'consistency':
-    model = SemanticConsistency(opt.output_nc, 256, opt.x_drop).to(device)
-elif opt.model == 'selfconsist':
-    model = SemanticSelfSupConsistency(opt.output_nc, 256, opt.x_drop).to(device)
+    model = SemanticConsistency(opt.input_nc, opt.output_nc, 256, opt.x_drop).to(device)
+elif opt.model == 'selfconsist': # recommended
+    model = SemanticSelfSupConsistency(opt.input_nc, opt.output_nc, 256, opt.x_drop).to(device)
 
 #-----------------------------------------------------------------------
 # optimizers
